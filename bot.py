@@ -1,4 +1,4 @@
-from telegram import Update, ReplyKeyboardMarkup
+from telegram import Update, ReplyKeyboardMarkup, ReplyKeyboardRemove
 from telegram.ext import (
     ApplicationBuilder,
     CommandHandler,
@@ -38,6 +38,8 @@ LANGUAGE_TEXTS = {
 
 # Обработчик /start — только выбор языка
 async def start_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    chat_id = update.message.chat_id
+    user_data[chat_id] = None  # сброс предыдущего языка
     keyboard = [["🇷🇺  Русский", "🇬🇧  English"]]
     reply_markup = ReplyKeyboardMarkup(
         keyboard,
@@ -52,7 +54,10 @@ async def choose_language(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.message.chat_id
     lang = "ru" if "Русский" in update.message.text else "en"
     user_data[chat_id] = lang
-    await update.message.reply_text(LANGUAGE_TEXTS[lang]['welcome'])
+    await update.message.reply_text(
+        LANGUAGE_TEXTS[lang]['welcome'],
+        reply_markup=ReplyKeyboardRemove()
+    )
     await update.message.reply_text(LANGUAGE_TEXTS[lang]['features'])
 
 # Регистрация хендлеров
@@ -61,3 +66,4 @@ application.add_handler(MessageHandler(filters.TEXT & filters.Regex("^(🇷🇺 
 
 logger.info("🚀 Bot is starting...")
 application.run_polling()
+
