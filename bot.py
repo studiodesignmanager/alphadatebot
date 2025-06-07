@@ -60,9 +60,66 @@ async def choose_language(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
     await update.message.reply_text(LANGUAGE_TEXTS[lang]['features'])
 
+# Команда /settings — меню настроек для админа
+async def settings_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.effective_user.id
+    if user_id != ADMIN_ID:
+        await update.message.reply_text("⛔ У вас нет доступа к настройкам.")
+        return
+
+    keyboard = [
+        ["Редактировать приветствие", "Редактировать текст возможностей"],
+        ["Закрыть"]
+    ]
+    reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True, one_time_keyboard=True)
+    await update.message.reply_text("⚙️ Настройки бота. Выберите, что хотите изменить:", reply_markup=reply_markup)
+
+# Обработка выбора в меню настроек
+async def settings_choice_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.effective_user.id
+    if user_id != ADMIN_ID:
+        return
+
+    text = update.message.text
+    chat_id = update.message.chat_id
+
+    if text == "Редактировать приветствие":
+        lang = user_data.get(chat_id, "ru")  # язык пользователя или по умолчанию
+        await update.message.reply_text(f"Введите новый текст приветствия на {lang.upper()}:", reply_markup=ReplyKeyboardRemove())
+        context.user_data["editing"] = "welcome"
+    elif text == "Редактировать текст возможностей":
+        lang = user_data.get(chat_id, "ru")
+        await update.message.reply_text(f"Введите новый текст возможностей на {lang.upper()}:", reply_markup=ReplyKeyboardRemove())
+        context.user_data["editing"] = "features"
+    elif text == "Закрыть":
+        await update.message.reply_text("Настройки закрыты.", reply_markup=ReplyKeyboardRemove())
+        context.user_data.pop("editing", None)
+
+# Обработка введенного текста для обновления LANGUAGE_TEXTS
+async def text_edit_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.effective_user.id
+    if user_id != ADMIN_ID:
+        return
+
+    chat_id = update.message.chat_id
+    editing_key = context.user_data.get("editing")
+    if not editing_key:
+        return
+
+    lang = user_data.get(chat_id, "ru")  # язык
+    new_text = update.message.text
+
+    LANGUAGE_TEXTS[lang][editing_key] = new_text
+    await update.message.reply_text(f"Текст '{editing_key}' на языке {lang.upper()} успешно обновлен.")
+    context.user_data.pop("editing", None)
+
 # Регистрация хендлеров
 application.add_handler(CommandHandler("start", start_handler))
 application.add_handler(MessageHandler(filters.TEXT & filters.Regex("^(🇷🇺  Русский|🇬🇧  English)$"), choose_language))
+
+application.add_handler(CommandHandler("settings", settings_handler))
+application.add_handler(MessageHandler(filters.TEXT & filters.Regex("^(Редактировать приветствие|Редактировать текст возможностей|Закрыть)$"), settings_choice_handler))
+application.add_handler(MessageHandler(filters.TEXT & (~filters.COMMAND), text_edit_handler))
 
 logger.info("🚀 Bot is starting...")
 application.run_polling()
