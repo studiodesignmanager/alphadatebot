@@ -32,18 +32,17 @@ if not TOKEN or not ADMIN_ID:
 
 SETTINGS_FILE = "settings.json"
 
-# Ключи состояний опроса
+# Состояния опроса
 (
     LANG_CHOOSE,
-    ASK_AGE_COUNTRY,
     ASK_REGISTRATION,
     ASK_PURPOSE,
     FINAL_MESSAGE,
     ADMIN_MENU,
     ADMIN_EDIT_TEXT,
-) = range(7)
+) = range(6)
 
-# Загружаем или создаём default texts
+
 def load_texts():
     default_texts = {
         "welcome_ru": "Добрый день! Напишите пожалуйста свой возраст и страну проживания",
@@ -69,18 +68,16 @@ def load_texts():
         with open(SETTINGS_FILE, "r", encoding="utf-8") as f:
             return json.load(f)
 
+
 def save_texts(texts):
     with open(SETTINGS_FILE, "w", encoding="utf-8") as f:
         json.dump(texts, f, ensure_ascii=False, indent=2)
+
 
 texts = load_texts()
 
 application = ApplicationBuilder().token(TOKEN).build()
 
-# Для хранения данных пользователя и админского режима
-user_data = {}
-
-# Кнопки языка
 language_keyboard = ReplyKeyboardMarkup(
     [["🇷🇺  Русский", "🇬🇧  English"]],
     resize_keyboard=True,
@@ -88,7 +85,6 @@ language_keyboard = ReplyKeyboardMarkup(
     input_field_placeholder="Выберите язык / Choose language",
 )
 
-# Кнопки меню редактирования для админа
 admin_menu_keyboard = InlineKeyboardMarkup([
     [InlineKeyboardButton("Изменить приветствие (RU)", callback_data="edit_welcome_ru"),
      InlineKeyboardButton("Edit greeting (EN)", callback_data="edit_welcome_en")],
@@ -101,60 +97,55 @@ admin_menu_keyboard = InlineKeyboardMarkup([
     [InlineKeyboardButton("Закрыть меню", callback_data="close_menu")]
 ])
 
-# --- Хэндлеры ---
 
-# /start - выбор языка
 async def start_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    chat_id = update.effective_chat.id
-    user_data[chat_id] = {"lang": None, "answers": {}}
     await update.message.reply_text(texts["choose_language"], reply_markup=language_keyboard)
+    # Инициализируем в user_data пустые данные
+    context.user_data.clear()
     return LANG_CHOOSE
 
-# Выбор языка
+
 async def language_chosen(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    chat_id = update.effective_chat.id
     text = update.message.text
     lang = "ru" if "Русский" in text else "en"
-    user_data[chat_id]["lang"] = lang
-    user_data[chat_id]["answers"] = {}
+    context.user_data["lang"] = lang
+    context.user_data["answers"] = {}
 
-    # Отправляем первое приветствие и первый вопрос
     await update.message.reply_text(texts[f"welcome_{lang}"], reply_markup=ReplyKeyboardRemove())
     await update.message.reply_text(texts[f"registration_question_{lang}"])
-
     return ASK_REGISTRATION
 
-# Вопрос о регистрации (второй вопрос)
+
 async def ask_registration(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    chat_id = update.effective_chat.id
-    lang = user_data[chat_id]["lang"]
-    user_data[chat_id]["answers"]["age_country"] = update.message.text
+    lang = context.user_data.get("lang", "ru")
+    context.user_data["answers"]["age_country"] = update.message.text
 
     await update.message.reply_text(texts[f"purpose_question_{lang}"])
     return ASK_PURPOSE
 
-# Вопрос о цели регистрации (третий вопрос)
+
 async def ask_purpose(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    chat_id = update.effective_chat.id
-    lang = user_data[chat_id]["lang"]
-    user_data[chat_id]["answers"]["registration_question"] = update.message.text
+    lang = context.user_data.get("lang", "ru")
+    context.user_data["answers"]["registration_question"] = update.message.text
 
     await update.message.reply_text(texts[f"final_message_{lang}"])
     return FINAL_MESSAGE
 
-# Финальное сообщение и завершение
-async def final_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    chat_id = update.effective_chat.id
-    user_data[chat_id]["answers"]["purpose_question"] = update.message.text
 
-    # Можно здесь что-то сделать с собранными ответами, например, логировать или отправить админу
+async def final_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    context.user_data["answers"]["purpose_question"] = update.message.text
+
+    # Например, отправим админу все ответы
+    answer_text = "\n".join(f"{k}: {v}" for k, v in context.user_data["answers"].items())
+    try:
+        await context.bot.send_message(chat_id=ADMIN_ID, text=f"Новый опрос от @{update.effective_user.username or update.effective_user.id}:\n{answer_text}")
+    except Exception as e:
+        logger.error(f"Ошибка отправки ответов админу: {e}")
 
     await update.message.reply_text("✅ Ваши ответы записаны. Спасибо!")
     return ConversationHandler.END
 
-# --- Админ ---
 
-# Команда /settings — меню для редактирования текстов
 async def settings_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     if user_id != ADMIN_ID:
@@ -164,7 +155,7 @@ async def settings_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(texts["settings_menu_title"], reply_markup=admin_menu_keyboard)
     return ADMIN_MENU
 
-# Обработка нажатий в меню админа
+
 async def admin_menu_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
@@ -175,7 +166,7 @@ async def admin_menu_handler(update: Update, context: ContextTypes.DEFAULT_TYPE)
         return ConversationHandler.END
 
     # Сохраняем ключ редактируемого текста в user_data
-    user_data[update.effective_user.id] = {"edit_key": data.replace("edit_", "")}
+    context.user_data["edit_key"] = data.replace("edit_", "")
 
     await query.message.edit_text(
         texts["edit_prompt"],
@@ -183,7 +174,7 @@ async def admin_menu_handler(update: Update, context: ContextTypes.DEFAULT_TYPE)
     )
     return ADMIN_EDIT_TEXT
 
-# Приём нового текста от админа
+
 async def admin_edit_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     if user_id != ADMIN_ID:
@@ -191,17 +182,18 @@ async def admin_edit_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return ConversationHandler.END
 
     new_text = update.message.text
-    key = user_data[user_id]["edit_key"]
-    texts[key] = new_text
-    save_texts(texts)
+    key = context.user_data.get("edit_key")
+    if key:
+        texts[key] = new_text
+        save_texts(texts)
+        await update.message.reply_text(f"✅ Текст '{key}' обновлён.")
+    else:
+        await update.message.reply_text("❌ Ошибка: ключ для редактирования не найден.")
 
-    await update.message.reply_text(f"✅ Текст '{key}' обновлён.")
-
-    # Показываем меню заново
     await update.message.reply_text(texts["settings_menu_title"], reply_markup=admin_menu_keyboard)
     return ADMIN_MENU
 
-# --- ConversationHandler для опроса ---
+
 conv_handler = ConversationHandler(
     entry_points=[CommandHandler("start", start_handler)],
     states={
@@ -215,12 +207,13 @@ conv_handler = ConversationHandler(
     fallbacks=[]
 )
 
-# Добавляем обработчик для команды /settings для входа в меню админа
 application.add_handler(CommandHandler("settings", settings_command))
 application.add_handler(conv_handler)
 
+
 logger.info("🚀 Bot is starting...")
 application.run_polling()
+
 
 
 
