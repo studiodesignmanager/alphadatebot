@@ -32,15 +32,16 @@ if not TOKEN or not ADMIN_ID:
 
 SETTINGS_FILE = "settings.json"
 
-# Состояния опроса
+# Состояния разговора
 (
     LANG_CHOOSE,
+    ASK_AGE_COUNTRY,
     ASK_REGISTRATION,
     ASK_PURPOSE,
     FINAL_MESSAGE,
     ADMIN_MENU,
     ADMIN_EDIT_TEXT,
-) = range(6)
+) = range(7)
 
 
 def load_texts():
@@ -79,7 +80,7 @@ texts = load_texts()
 application = ApplicationBuilder().token(TOKEN).build()
 
 language_keyboard = ReplyKeyboardMarkup(
-    [["🇷🇺  Русский", "🇬🇧  English"]],
+    [["🇷🇺 Русский", "🇬🇧 English"]],
     resize_keyboard=True,
     one_time_keyboard=True,
     input_field_placeholder="Выберите язык / Choose language",
@@ -100,7 +101,6 @@ admin_menu_keyboard = InlineKeyboardMarkup([
 
 async def start_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(texts["choose_language"], reply_markup=language_keyboard)
-    # Инициализируем в user_data пустые данные
     context.user_data.clear()
     return LANG_CHOOSE
 
@@ -112,13 +112,20 @@ async def language_chosen(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data["answers"] = {}
 
     await update.message.reply_text(texts[f"welcome_{lang}"], reply_markup=ReplyKeyboardRemove())
+    return ASK_AGE_COUNTRY
+
+
+async def ask_age_country(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    lang = context.user_data.get("lang", "ru")
+    context.user_data["answers"]["age_country"] = update.message.text
+
     await update.message.reply_text(texts[f"registration_question_{lang}"])
     return ASK_REGISTRATION
 
 
 async def ask_registration(update: Update, context: ContextTypes.DEFAULT_TYPE):
     lang = context.user_data.get("lang", "ru")
-    context.user_data["answers"]["age_country"] = update.message.text
+    context.user_data["answers"]["registration_question"] = update.message.text
 
     await update.message.reply_text(texts[f"purpose_question_{lang}"])
     return ASK_PURPOSE
@@ -126,16 +133,16 @@ async def ask_registration(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def ask_purpose(update: Update, context: ContextTypes.DEFAULT_TYPE):
     lang = context.user_data.get("lang", "ru")
-    context.user_data["answers"]["registration_question"] = update.message.text
+    context.user_data["answers"]["purpose_question"] = update.message.text
 
     await update.message.reply_text(texts[f"final_message_{lang}"])
     return FINAL_MESSAGE
 
 
 async def final_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    context.user_data["answers"]["purpose_question"] = update.message.text
+    context.user_data["answers"]["final_message_received"] = update.message.text
 
-    # Например, отправим админу все ответы
+    # Отправим все ответы админу
     answer_text = "\n".join(f"{k}: {v}" for k, v in context.user_data["answers"].items())
     try:
         await context.bot.send_message(chat_id=ADMIN_ID, text=f"Новый опрос от @{update.effective_user.username or update.effective_user.id}:\n{answer_text}")
@@ -165,9 +172,7 @@ async def admin_menu_handler(update: Update, context: ContextTypes.DEFAULT_TYPE)
         await query.message.delete()
         return ConversationHandler.END
 
-    # Сохраняем ключ редактируемого текста в user_data
     context.user_data["edit_key"] = data.replace("edit_", "")
-
     await query.message.edit_text(
         texts["edit_prompt"],
         reply_markup=None
@@ -197,7 +202,8 @@ async def admin_edit_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
 conv_handler = ConversationHandler(
     entry_points=[CommandHandler("start", start_handler)],
     states={
-        LANG_CHOOSE: [MessageHandler(filters.Regex("^(🇷🇺  Русский|🇬🇧  English)$"), language_chosen)],
+        LANG_CHOOSE: [MessageHandler(filters.Regex("^(🇷🇺 Русский|🇬🇧 English)$"), language_chosen)],
+        ASK_AGE_COUNTRY: [MessageHandler(filters.TEXT & ~filters.COMMAND, ask_age_country)],
         ASK_REGISTRATION: [MessageHandler(filters.TEXT & ~filters.COMMAND, ask_registration)],
         ASK_PURPOSE: [MessageHandler(filters.TEXT & ~filters.COMMAND, ask_purpose)],
         FINAL_MESSAGE: [MessageHandler(filters.TEXT & ~filters.COMMAND, final_message)],
@@ -210,9 +216,9 @@ conv_handler = ConversationHandler(
 application.add_handler(CommandHandler("settings", settings_command))
 application.add_handler(conv_handler)
 
-
 logger.info("🚀 Bot is starting...")
 application.run_polling()
+
 
 
 
