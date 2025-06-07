@@ -14,8 +14,8 @@ import logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Загрузка токена и ID
-load_dotenv()
+# Загрузка переменных окружения
+load_dotenv(dotenv_path=os.path.join(os.path.dirname(__file__), ".env"))
 TOKEN = os.getenv("TELEGRAM_TOKEN")
 ADMIN_ID = int(os.getenv("ADMIN_ID", "0"))
 
@@ -23,7 +23,6 @@ if not TOKEN or not ADMIN_ID:
     raise ValueError("⛔ Убедитесь, что в .env заданы TELEGRAM_TOKEN и ADMIN_ID")
 
 application = ApplicationBuilder().token(TOKEN).build()
-
 user_data = {}
 
 LANGUAGE_TEXTS = {
@@ -37,11 +36,18 @@ LANGUAGE_TEXTS = {
     }
 }
 
+# Обработчик /start — только выбор языка
 async def start_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     keyboard = [["🇷🇺  Русский", "🇬🇧  English"]]
-    reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True, one_time_keyboard=True, input_field_placeholder="Выберите язык / Choose language")
+    reply_markup = ReplyKeyboardMarkup(
+        keyboard,
+        resize_keyboard=True,
+        one_time_keyboard=True,
+        input_field_placeholder="Выберите язык / Choose language"
+    )
     await update.message.reply_text("🌍 Выберите язык / Choose your language:", reply_markup=reply_markup)
 
+# После выбора языка — приветствие на нужном языке
 async def choose_language(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.message.chat_id
     lang = "ru" if "Русский" in update.message.text else "en"
@@ -49,6 +55,7 @@ async def choose_language(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(LANGUAGE_TEXTS[lang]['welcome'])
     await update.message.reply_text(LANGUAGE_TEXTS[lang]['features'])
 
+# Регистрация хендлеров
 application.add_handler(CommandHandler("start", start_handler))
 application.add_handler(MessageHandler(filters.TEXT & filters.Regex("^(🇷🇺  Русский|🇬🇧  English)$"), choose_language))
 
