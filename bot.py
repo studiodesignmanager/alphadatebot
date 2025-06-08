@@ -1,3 +1,4 @@
+import os
 import json
 import logging
 from telegram import Update, ReplyKeyboardMarkup, ReplyKeyboardRemove
@@ -49,8 +50,8 @@ def save_texts(texts):
 # Загружаем тексты при старте
 texts = load_texts()
 
-# Админ ID (замени на свой)
-ADMIN_ID = 123456789  # <- Твой Telegram ID
+# Админ ID (замени на свой Telegram ID)
+ADMIN_ID = 123456789  # <-- сюда впиши свой ID
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(texts["welcome_message"])
@@ -109,9 +110,12 @@ async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 def main():
-    app = ApplicationBuilder().token("YOUR_BOT_TOKEN_HERE").build()
+    BOT_TOKEN = os.getenv("BOT_TOKEN")
+    if not BOT_TOKEN:
+        raise RuntimeError("Error: BOT_TOKEN environment variable is not set!")
 
-    # Хендлеры
+    app = ApplicationBuilder().token(BOT_TOKEN).build()
+
     conv_handler_edit_texts = ConversationHandler(
         entry_points=[CommandHandler("edit_texts", edit_texts_start)],
         states={
@@ -126,7 +130,6 @@ def main():
     app.add_handler(CommandHandler("start", start))
     app.add_handler(conv_handler_edit_texts)
 
-    # Запуск бота
     app.run_polling()
 
 if __name__ == "__main__":
