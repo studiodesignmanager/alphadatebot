@@ -1,4 +1,3 @@
-
 import json
 import os
 from dotenv import load_dotenv
@@ -252,10 +251,3 @@ application.add_handler(conv_handler)
 if __name__ == "__main__":
     print("✅ Бот запускается...")
     logger.info("🚀
-
-
-
-
-
-
-
