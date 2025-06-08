@@ -21,10 +21,7 @@ from telegram.ext import (
     ContextTypes,
 )
 
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-)
+logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 load_dotenv()
@@ -36,7 +33,6 @@ if not TOKEN or not ADMIN_ID:
 
 SETTINGS_FILE = "settings.json"
 
-# Состояния разговора
 (
     LANG_CHOOSE,
     ASK_AGE_COUNTRY,
@@ -72,7 +68,6 @@ def load_texts():
     else:
         with open(SETTINGS_FILE, "r", encoding="utf-8") as f:
             texts = json.load(f)
-        # Гарантируем наличие ключей, чтобы избежать KeyError
         for key, val in default_texts.items():
             if key not in texts:
                 texts[key] = val
@@ -109,7 +104,7 @@ admin_menu_keyboard = InlineKeyboardMarkup([
 
 
 async def start_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    logger.info(f"User {update.effective_user.id} started the bot")
+    logger.info("User %s started the bot", update.effective_user.id)
     await update.message.reply_text(texts["choose_language"], reply_markup=language_keyboard)
     context.user_data.clear()
     return LANG_CHOOSE
@@ -118,18 +113,27 @@ async def start_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def language_chosen(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = update.message.text
     lang = "ru" if "Русский" in text else "en"
-    logger.info(f"User {update.effective_user.id} chose language: {lang}")
     context.user_data["lang"] = lang
     context.user_data["answers"] = {}
 
+    # Отправляем приветственное сообщение с вопросом сразу
     await update.message.reply_text(texts[f"welcome_{lang}"], reply_markup=ReplyKeyboardRemove())
     return ASK_AGE_COUNTRY
 
 
 async def ask_age_country(update: Update, context: ContextTypes.DEFAULT_TYPE):
     lang = context.user_data.get("lang", "ru")
+    user = update.effective_user
     context.user_data["answers"]["age_country"] = update.message.text
-    logger.info(f"User {update.effective_user.id} answered age_country: {update.message.text}")
+
+    # Отправляем сразу админу ответ с логином пользователя
+    try:
+        await context.bot.send_message(
+            chat_id=ADMIN_ID,
+            text=f"Ответ @{user.username or user.id} — Возраст и страна: {update.message.text}"
+        )
+    except Exception as e:
+        logger.error(f"Ошибка отправки ответа админу: {e}")
 
     await update.message.reply_text(texts[f"registration_question_{lang}"])
     return ASK_REGISTRATION
@@ -137,8 +141,16 @@ async def ask_age_country(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def ask_registration(update: Update, context: ContextTypes.DEFAULT_TYPE):
     lang = context.user_data.get("lang", "ru")
+    user = update.effective_user
     context.user_data["answers"]["registration_question"] = update.message.text
-    logger.info(f"User {update.effective_user.id} answered registration_question: {update.message.text}")
+
+    try:
+        await context.bot.send_message(
+            chat_id=ADMIN_ID,
+            text=f"Ответ @{user.username or user.id} — Регистрация ранее: {update.message.text}"
+        )
+    except Exception as e:
+        logger.error(f"Ошибка отправки ответа админу: {e}")
 
     await update.message.reply_text(texts[f"purpose_question_{lang}"])
     return ASK_PURPOSE
@@ -146,25 +158,32 @@ async def ask_registration(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def ask_purpose(update: Update, context: ContextTypes.DEFAULT_TYPE):
     lang = context.user_data.get("lang", "ru")
+    user = update.effective_user
     context.user_data["answers"]["purpose_question"] = update.message.text
-    logger.info(f"User {update.effective_user.id} answered purpose_question: {update.message.text}")
+
+    try:
+        await context.bot.send_message(
+            chat_id=ADMIN_ID,
+            text=f"Ответ @{user.username or user.id} — Цель регистрации: {update.message.text}"
+        )
+    except Exception as e:
+        logger.error(f"Ошибка отправки ответа админу: {e}")
 
     await update.message.reply_text(texts[f"final_message_{lang}"])
     return FINAL_MESSAGE
 
 
 async def final_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    logger.info(f"User {update.effective_user.id} reached final_message")
+    user = update.effective_user
     context.user_data["answers"]["final_message_received"] = update.message.text
-    answer_text = "\n".join(f"{k}: {v}" for k, v in context.user_data["answers"].items())
+
     try:
         await context.bot.send_message(
             chat_id=ADMIN_ID,
-            text=f"Новый опрос от @{update.effective_user.username or update.effective_user.id}:\n{answer_text}"
+            text=f"Ответ @{user.username or user.id} — Заключительное сообщение: {update.message.text}"
         )
-        logger.info(f"Notification sent to admin {ADMIN_ID} successfully")
     except Exception as e:
-        logger.error(f"Ошибка отправки ответов админу: {e}")
+        logger.error(f"Ошибка отправки ответа админу: {e}")
 
     await update.message.reply_text("✅ Ваши ответы записаны. Спасибо!")
     return ConversationHandler.END
@@ -174,11 +193,9 @@ async def settings_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     if user_id != ADMIN_ID:
         await update.message.reply_text(texts["access_denied"])
-        logger.warning(f"User {user_id} tried to access settings but was denied")
         return ConversationHandler.END
 
     await update.message.reply_text(texts["settings_menu_title"], reply_markup=admin_menu_keyboard)
-    logger.info(f"Admin {user_id} opened settings menu")
     return ADMIN_MENU
 
 
@@ -186,11 +203,9 @@ async def admin_menu_handler(update: Update, context: ContextTypes.DEFAULT_TYPE)
     query = update.callback_query
     await query.answer()
     data = query.data
-    logger.info(f"Admin callback query received: {data}")
 
     if data == "close_menu":
         await query.message.delete()
-        logger.info("Admin closed the settings menu")
         return ConversationHandler.END
 
     context.user_data["edit_key"] = data.replace("edit_", "")
@@ -202,7 +217,6 @@ async def admin_edit_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     if user_id != ADMIN_ID:
         await update.message.reply_text(texts["access_denied"])
-        logger.warning(f"User {user_id} tried to edit texts but was denied")
         return ConversationHandler.END
 
     new_text = update.message.text
@@ -211,10 +225,8 @@ async def admin_edit_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         texts[key] = new_text
         save_texts(texts)
         await update.message.reply_text(f"✅ Текст '{key}' обновлён.")
-        logger.info(f"Admin updated text key '{key}'")
     else:
         await update.message.reply_text("❌ Ошибка: ключ для редактирования не найден.")
-        logger.error("Edit key not found during admin text editing")
 
     await update.message.reply_text(texts["settings_menu_title"], reply_markup=admin_menu_keyboard)
     return ADMIN_MENU
@@ -237,11 +249,10 @@ conv_handler = ConversationHandler(
 application.add_handler(CommandHandler("settings", settings_command))
 application.add_handler(conv_handler)
 
-
 if __name__ == "__main__":
     print("✅ Бот запускается...")
-    logger.info("🚀 Bot is starting...")
-    application.run_polling()
+    logger.info("🚀
+
 
 
 
