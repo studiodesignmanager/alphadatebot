@@ -115,7 +115,7 @@ async def language_chosen(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data["lang"] = lang
     context.user_data["answers"] = {}
 
-    # Отправляем приветственное сообщение с вопросом сразу
+    # Отправляем приветствие + сразу задаём первый вопрос
     await update.message.reply_text(texts[f"welcome_{lang}"], reply_markup=ReplyKeyboardRemove())
     return ASK_AGE_COUNTRY
 
@@ -125,7 +125,6 @@ async def ask_age_country(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
     context.user_data["answers"]["age_country"] = update.message.text
 
-    # Отправляем сразу админу ответ с логином пользователя
     try:
         await context.bot.send_message(
             chat_id=ADMIN_ID,
@@ -250,4 +249,6 @@ application.add_handler(conv_handler)
 
 if __name__ == "__main__":
     print("✅ Бот запускается...")
-    logger.info("🚀
+    logger.info("🚀 Bot started")
+    application.run_polling()
+
