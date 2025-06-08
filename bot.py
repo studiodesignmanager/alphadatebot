@@ -11,54 +11,67 @@ from telegram.ext import (
     ConversationHandler,
 )
 
-# Логи
 logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     level=logging.INFO
 )
 logger = logging.getLogger(__name__)
 
-# Пути к файлу с текстами
 TEXTS_FILE = "texts.json"
 
-# Константы состояний ConversationHandler для редактирования
 (
     CHOOSING_TEXT,
     TYPING_NEW_TEXT,
-) = range(2)
+    WAITING_FOR_ANSWER_1,
+    WAITING_FOR_ANSWER_2,
+    WAITING_FOR_ANSWER_3,
+) = range(5)
 
-# Загрузка текстов из файла
 def load_texts():
     try:
         with open(TEXTS_FILE, "r", encoding="utf-8") as f:
             return json.load(f)
     except FileNotFoundError:
-        # Если файл отсутствует, создадим с дефолтными текстами
         default_texts = {
             "welcome_message": "Добро пожаловать!",
-            "first_question": "У вас были регистрации на международных сайтах знакомств ранее?"
+            "first_question": "У вас были регистрации на международных сайтах знакомств ранее?",
+            "second_question": "Какой у вас опыт в онлайн-знакомствах?",
+            "third_question": "Что вы ищете на нашем сервисе?",
+            "thank_you": "Спасибо за ваши ответы! Мы свяжемся с вами в ближайшее время."
         }
         with open(TEXTS_FILE, "w", encoding="utf-8") as f:
             json.dump(default_texts, f, ensure_ascii=False, indent=2)
         return default_texts
 
-# Сохранение текстов в файл
 def save_texts(texts):
     with open(TEXTS_FILE, "w", encoding="utf-8") as f:
         json.dump(texts, f, ensure_ascii=False, indent=2)
 
-# Загружаем тексты при старте
 texts = load_texts()
 
-# Админ ID (замени на свой Telegram ID)
-ADMIN_ID = 123456789  # <-- сюда впиши свой ID
+ADMIN_ID = 123456789  # <-- Вставь сюда свой Telegram ID
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(texts["welcome_message"])
-    # Сразу после приветствия задаём первый вопрос
     await update.message.reply_text(texts["first_question"])
+    return WAITING_FOR_ANSWER_1
 
-# Команда админа для редактирования текстов
+async def answer_1(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    context.user_data["answer_1"] = update.message.text
+    await update.message.reply_text(texts["second_question"])
+    return WAITING_FOR_ANSWER_2
+
+async def answer_2(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    context.user_data["answer_2"] = update.message.text
+    await update.message.reply_text(texts["third_question"])
+    return WAITING_FOR_ANSWER_3
+
+async def answer_3(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    context.user_data["answer_3"] = update.message.text
+    await update.message.reply_text(texts["thank_you"])
+    # Здесь можно обработать ответы или сохранить куда-то
+    return ConversationHandler.END
+
 async def edit_texts_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     if user_id != ADMIN_ID:
@@ -108,7 +121,6 @@ async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("Действие отменено.", reply_markup=ReplyKeyboardRemove())
     return ConversationHandler.END
 
-
 def main():
     BOT_TOKEN = os.getenv("BOT_TOKEN")
     if not BOT_TOKEN:
@@ -127,12 +139,25 @@ def main():
         per_chat=True,
     )
 
-    app.add_handler(CommandHandler("start", start))
+    conv_handler_dialog = ConversationHandler(
+        entry_points=[CommandHandler("start", start)],
+        states={
+            WAITING_FOR_ANSWER_1: [MessageHandler(filters.TEXT & ~filters.COMMAND, answer_1)],
+            WAITING_FOR_ANSWER_2: [MessageHandler(filters.TEXT & ~filters.COMMAND, answer_2)],
+            WAITING_FOR_ANSWER_3: [MessageHandler(filters.TEXT & ~filters.COMMAND, answer_3)],
+        },
+        fallbacks=[CommandHandler("cancel", cancel)],
+        per_user=True,
+        per_chat=True,
+    )
+
     app.add_handler(conv_handler_edit_texts)
+    app.add_handler(conv_handler_dialog)
 
     app.run_polling()
 
 if __name__ == "__main__":
     main()
+
 
 
