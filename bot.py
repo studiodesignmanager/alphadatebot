@@ -19,7 +19,7 @@ logger = logging.getLogger(__name__)
 
 TEXTS_FILE = "texts.json"
 
-CHOOSING_LANGUAGE, CHOOSING_TEXT, TYPING_NEW_TEXT = range(3)
+CHOOSING_LANGUAGE, ASKING_FIRST_QUESTION, CHOOSING_TEXT, TYPING_NEW_TEXT = range(4)
 
 ADMIN_ID = 486225736  # Твой Telegram ID
 
@@ -69,18 +69,13 @@ async def choose_language(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_lang = context.user_data["lang"]
     user_id = update.effective_user.id
 
-    buttons = []
-
-    # Приветствие и первый вопрос
+    # Отправляем приветствие и первый вопрос
     await update.message.reply_text(texts[user_lang]["welcome_message"])
-
     await update.message.reply_text(texts[user_lang]["first_question"])
 
     # Если админ — добавляем кнопку Настройки
     if user_id == ADMIN_ID:
-        buttons.append(["Настройки"])
-
-    if buttons:
+        buttons = [["Настройки"]]
         await update.message.reply_text(
             "Меню:" if user_lang == "ru" else "Menu:",
             reply_markup=ReplyKeyboardMarkup(buttons, resize_keyboard=True, one_time_keyboard=True),
@@ -91,6 +86,19 @@ async def choose_language(update: Update, context: ContextTypes.DEFAULT_TYPE):
             reply_markup=ReplyKeyboardRemove(),
         )
 
+    # Ждём ответ на первый вопрос
+    return ASKING_FIRST_QUESTION
+
+async def handle_first_question_response(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    answer = update.message.text
+    context.user_data["first_question_answer"] = answer  # Сохраняем ответ
+
+    user_lang = context.user_data.get("lang", "en")
+
+    await update.message.reply_text(
+        ("Спасибо за ответ! Если хотите, используйте меню." if user_lang == "ru" else "Thanks for your answer! Use the menu if you want."),
+        reply_markup=ReplyKeyboardRemove(),
+    )
     return ConversationHandler.END
 
 async def edit_texts_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -113,7 +121,7 @@ async def choose_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return ConversationHandler.END
 
     context.user_data["edit_choice"] = text_choice
-    # Для простоты показываем только русские версии. Можно расширить до многоязычия.
+    # Для простоты показываем русские версии. Можно расширить до многоязычия.
     current_value = (
         texts["ru"]["welcome_message"] if text_choice == "Приветствие" else texts["ru"]["first_question"]
     )
@@ -165,6 +173,7 @@ def main():
         entry_points=[CommandHandler("start", start)],
         states={
             CHOOSING_LANGUAGE: [MessageHandler(filters.TEXT & ~filters.COMMAND, choose_language)],
+            ASKING_FIRST_QUESTION: [MessageHandler(filters.TEXT & ~filters.COMMAND, handle_first_question_response)],
             CHOOSING_TEXT: [MessageHandler(filters.TEXT & ~filters.COMMAND, choose_text)],
             TYPING_NEW_TEXT: [MessageHandler(filters.TEXT & ~filters.COMMAND, save_new_text)],
         },
@@ -180,6 +189,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
 
