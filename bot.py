@@ -145,7 +145,10 @@ async def final_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # Отправим все ответы админу
     answer_text = "\n".join(f"{k}: {v}" for k, v in context.user_data["answers"].items())
     try:
-        await context.bot.send_message(chat_id=ADMIN_ID, text=f"Новый опрос от @{update.effective_user.username or update.effective_user.id}:\n{answer_text}")
+        await context.bot.send_message(
+            chat_id=ADMIN_ID,
+            text=f"Новый опрос от @{update.effective_user.username or update.effective_user.id}:\n{answer_text}"
+        )
     except Exception as e:
         logger.error(f"Ошибка отправки ответов админу: {e}")
 
@@ -173,10 +176,7 @@ async def admin_menu_handler(update: Update, context: ContextTypes.DEFAULT_TYPE)
         return ConversationHandler.END
 
     context.user_data["edit_key"] = data.replace("edit_", "")
-    await query.message.edit_text(
-        texts["edit_prompt"],
-        reply_markup=None
-    )
+    await query.message.edit_text(texts["edit_prompt"])
     return ADMIN_EDIT_TEXT
 
 
@@ -216,8 +216,11 @@ conv_handler = ConversationHandler(
 application.add_handler(CommandHandler("settings", settings_command))
 application.add_handler(conv_handler)
 
-logger.info("🚀 Bot is starting...")
-application.run_polling()
+if __name__ == "__main__":
+    print("✅ Бот запускается...")
+    logger.info("🚀 Bot is starting...")
+    application.run_polling()
+
 
 
 
