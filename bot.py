@@ -1,254 +1,135 @@
 import json
-import os
-from dotenv import load_dotenv
 import logging
-
-from telegram import (
-    Update,
-    ReplyKeyboardMarkup,
-    ReplyKeyboardRemove,
-    InlineKeyboardMarkup,
-    InlineKeyboardButton,
-)
+from telegram import Update, ReplyKeyboardMarkup, ReplyKeyboardRemove
 from telegram.ext import (
     ApplicationBuilder,
     CommandHandler,
     MessageHandler,
-    CallbackQueryHandler,
-    ConversationHandler,
     filters,
     ContextTypes,
+    ConversationHandler,
 )
 
-logging.basicConfig(level=logging.INFO)
+# Логи
+logging.basicConfig(
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    level=logging.INFO
+)
 logger = logging.getLogger(__name__)
 
-load_dotenv()
-TOKEN = os.getenv("TELEGRAM_TOKEN")
-ADMIN_ID = int(os.getenv("ADMIN_ID", "0"))
+# Пути к файлу с текстами
+TEXTS_FILE = "texts.json"
 
-if not TOKEN or not ADMIN_ID:
-    raise ValueError("⛔ TELEGRAM_TOKEN и ADMIN_ID должны быть заданы в .env")
-
-SETTINGS_FILE = "settings.json"
-
+# Константы состояний ConversationHandler для редактирования
 (
-    LANG_CHOOSE,
-    ASK_AGE_COUNTRY,
-    ASK_REGISTRATION,
-    ASK_PURPOSE,
-    FINAL_MESSAGE,
-    ADMIN_MENU,
-    ADMIN_EDIT_TEXT,
-) = range(7)
+    CHOOSING_TEXT,
+    TYPING_NEW_TEXT,
+) = range(2)
 
-
+# Загрузка текстов из файла
 def load_texts():
-    default_texts = {
-        "welcome_ru": "Добрый день! Напишите пожалуйста свой возраст и страну проживания",
-        "registration_question_ru": "У вас были регистрации на международных сайтах знакомствах ранее?",
-        "purpose_question_ru": "С какой целью интересует регистрация?",
-        "final_message_ru": "Спасибо! Мы свяжемся с вами в ближайшее время",
-
-        "welcome_en": "Good day! Please write your age and country of residence",
-        "registration_question_en": "Have you registered on international dating sites before?",
-        "purpose_question_en": "What is the purpose of your registration?",
-        "final_message_en": "Thank you! We will contact you shortly",
-
-        "choose_language": "🌍 Выберите язык / Choose your language:",
-        "settings_menu_title": "⚙️ Настройки текстов (только для админа)",
-        "edit_prompt": "Введите новый текст для выбранного пункта:",
-        "access_denied": "🚫 У вас нет доступа к этой команде.",
-    }
-    if not os.path.exists(SETTINGS_FILE):
-        with open(SETTINGS_FILE, "w", encoding="utf-8") as f:
+    try:
+        with open(TEXTS_FILE, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except FileNotFoundError:
+        # Если файл отсутствует, создадим с дефолтными текстами
+        default_texts = {
+            "welcome_message": "Добро пожаловать!",
+            "first_question": "У вас были регистрации на международных сайтах знакомств ранее?"
+        }
+        with open(TEXTS_FILE, "w", encoding="utf-8") as f:
             json.dump(default_texts, f, ensure_ascii=False, indent=2)
         return default_texts
-    else:
-        with open(SETTINGS_FILE, "r", encoding="utf-8") as f:
-            texts = json.load(f)
-        for key, val in default_texts.items():
-            if key not in texts:
-                texts[key] = val
-        return texts
 
-
+# Сохранение текстов в файл
 def save_texts(texts):
-    with open(SETTINGS_FILE, "w", encoding="utf-8") as f:
+    with open(TEXTS_FILE, "w", encoding="utf-8") as f:
         json.dump(texts, f, ensure_ascii=False, indent=2)
 
-
+# Загружаем тексты при старте
 texts = load_texts()
 
-application = ApplicationBuilder().token(TOKEN).build()
+# Админ ID (замени на свой)
+ADMIN_ID = 123456789  # <- Твой Telegram ID
 
-language_keyboard = ReplyKeyboardMarkup(
-    [["🇷🇺 Русский", "🇬🇧 English"]],
-    resize_keyboard=True,
-    one_time_keyboard=True,
-    input_field_placeholder="Выберите язык / Choose language",
-)
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text(texts["welcome_message"])
+    # Сразу после приветствия задаём первый вопрос
+    await update.message.reply_text(texts["first_question"])
 
-admin_menu_keyboard = InlineKeyboardMarkup([
-    [InlineKeyboardButton("Изменить приветствие (RU)", callback_data="edit_welcome_ru"),
-     InlineKeyboardButton("Edit greeting (EN)", callback_data="edit_welcome_en")],
-    [InlineKeyboardButton("Изменить вопрос о регистрации (RU)", callback_data="edit_registration_question_ru"),
-     InlineKeyboardButton("Edit registration question (EN)", callback_data="edit_registration_question_en")],
-    [InlineKeyboardButton("Изменить цель регистрации (RU)", callback_data="edit_purpose_question_ru"),
-     InlineKeyboardButton("Edit purpose question (EN)", callback_data="edit_purpose_question_en")],
-    [InlineKeyboardButton("Изменить финальное сообщение (RU)", callback_data="edit_final_message_ru"),
-     InlineKeyboardButton("Edit final message (EN)", callback_data="edit_final_message_en")],
-    [InlineKeyboardButton("Закрыть меню", callback_data="close_menu")]
-])
+# Команда админа для редактирования текстов
+async def edit_texts_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.effective_user.id
+    if user_id != ADMIN_ID:
+        await update.message.reply_text("У вас нет доступа к этой команде.")
+        return ConversationHandler.END
 
+    reply_keyboard = [["Приветствие", "Первый вопрос"], ["Отмена"]]
+    await update.message.reply_text(
+        "Что хотите отредактировать?",
+        reply_markup=ReplyKeyboardMarkup(reply_keyboard, one_time_keyboard=True, resize_keyboard=True),
+    )
+    return CHOOSING_TEXT
 
-async def start_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    logger.info("User %s started the bot", update.effective_user.id)
-    await update.message.reply_text(texts["choose_language"], reply_markup=language_keyboard)
-    context.user_data.clear()
-    return LANG_CHOOSE
+async def choose_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    text_choice = update.message.text
+    if text_choice == "Отмена":
+        await update.message.reply_text("Редактирование отменено.", reply_markup=ReplyKeyboardRemove())
+        return ConversationHandler.END
 
+    context.user_data["edit_choice"] = text_choice
+    current_value = (
+        texts["welcome_message"] if text_choice == "Приветствие" else texts["first_question"]
+    )
+    await update.message.reply_text(
+        f"Текущий текст для '{text_choice}':\n\n{current_value}\n\nОтправьте новый текст:",
+        reply_markup=ReplyKeyboardRemove(),
+    )
+    return TYPING_NEW_TEXT
 
-async def language_chosen(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    text = update.message.text
-    lang = "ru" if "Русский" in text else "en"
-    context.user_data["lang"] = lang
-    context.user_data["answers"] = {}
+async def save_new_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    new_text = update.message.text
+    choice = context.user_data.get("edit_choice")
 
-    # Отправляем приветствие + сразу задаём первый вопрос
-    await update.message.reply_text(texts[f"welcome_{lang}"], reply_markup=ReplyKeyboardRemove())
-    return ASK_AGE_COUNTRY
+    if choice == "Приветствие":
+        texts["welcome_message"] = new_text
+    elif choice == "Первый вопрос":
+        texts["first_question"] = new_text
+    else:
+        await update.message.reply_text("Произошла ошибка.")
+        return ConversationHandler.END
 
+    save_texts(texts)
+    await update.message.reply_text(f"Текст '{choice}' обновлён успешно!")
+    return ConversationHandler.END
 
-async def ask_age_country(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    lang = context.user_data.get("lang", "ru")
-    user = update.effective_user
-    context.user_data["answers"]["age_country"] = update.message.text
-
-    try:
-        await context.bot.send_message(
-            chat_id=ADMIN_ID,
-            text=f"Ответ @{user.username or user.id} — Возраст и страна: {update.message.text}"
-        )
-    except Exception as e:
-        logger.error(f"Ошибка отправки ответа админу: {e}")
-
-    await update.message.reply_text(texts[f"registration_question_{lang}"])
-    return ASK_REGISTRATION
-
-
-async def ask_registration(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    lang = context.user_data.get("lang", "ru")
-    user = update.effective_user
-    context.user_data["answers"]["registration_question"] = update.message.text
-
-    try:
-        await context.bot.send_message(
-            chat_id=ADMIN_ID,
-            text=f"Ответ @{user.username or user.id} — Регистрация ранее: {update.message.text}"
-        )
-    except Exception as e:
-        logger.error(f"Ошибка отправки ответа админу: {e}")
-
-    await update.message.reply_text(texts[f"purpose_question_{lang}"])
-    return ASK_PURPOSE
-
-
-async def ask_purpose(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    lang = context.user_data.get("lang", "ru")
-    user = update.effective_user
-    context.user_data["answers"]["purpose_question"] = update.message.text
-
-    try:
-        await context.bot.send_message(
-            chat_id=ADMIN_ID,
-            text=f"Ответ @{user.username or user.id} — Цель регистрации: {update.message.text}"
-        )
-    except Exception as e:
-        logger.error(f"Ошибка отправки ответа админу: {e}")
-
-    await update.message.reply_text(texts[f"final_message_{lang}"])
-    return FINAL_MESSAGE
-
-
-async def final_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user = update.effective_user
-    context.user_data["answers"]["final_message_received"] = update.message.text
-
-    try:
-        await context.bot.send_message(
-            chat_id=ADMIN_ID,
-            text=f"Ответ @{user.username or user.id} — Заключительное сообщение: {update.message.text}"
-        )
-    except Exception as e:
-        logger.error(f"Ошибка отправки ответа админу: {e}")
-
-    await update.message.reply_text("✅ Ваши ответы записаны. Спасибо!")
+async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text("Действие отменено.", reply_markup=ReplyKeyboardRemove())
     return ConversationHandler.END
 
 
-async def settings_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user_id = update.effective_user.id
-    if user_id != ADMIN_ID:
-        await update.message.reply_text(texts["access_denied"])
-        return ConversationHandler.END
+def main():
+    app = ApplicationBuilder().token("YOUR_BOT_TOKEN_HERE").build()
 
-    await update.message.reply_text(texts["settings_menu_title"], reply_markup=admin_menu_keyboard)
-    return ADMIN_MENU
+    # Хендлеры
+    conv_handler_edit_texts = ConversationHandler(
+        entry_points=[CommandHandler("edit_texts", edit_texts_start)],
+        states={
+            CHOOSING_TEXT: [MessageHandler(filters.TEXT & ~filters.COMMAND, choose_text)],
+            TYPING_NEW_TEXT: [MessageHandler(filters.TEXT & ~filters.COMMAND, save_new_text)],
+        },
+        fallbacks=[CommandHandler("cancel", cancel)],
+        per_user=True,
+        per_chat=True,
+    )
 
+    app.add_handler(CommandHandler("start", start))
+    app.add_handler(conv_handler_edit_texts)
 
-async def admin_menu_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    query = update.callback_query
-    await query.answer()
-    data = query.data
-
-    if data == "close_menu":
-        await query.message.delete()
-        return ConversationHandler.END
-
-    context.user_data["edit_key"] = data.replace("edit_", "")
-    await query.message.edit_text(texts["edit_prompt"])
-    return ADMIN_EDIT_TEXT
-
-
-async def admin_edit_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user_id = update.effective_user.id
-    if user_id != ADMIN_ID:
-        await update.message.reply_text(texts["access_denied"])
-        return ConversationHandler.END
-
-    new_text = update.message.text
-    key = context.user_data.get("edit_key")
-    if key:
-        texts[key] = new_text
-        save_texts(texts)
-        await update.message.reply_text(f"✅ Текст '{key}' обновлён.")
-    else:
-        await update.message.reply_text("❌ Ошибка: ключ для редактирования не найден.")
-
-    await update.message.reply_text(texts["settings_menu_title"], reply_markup=admin_menu_keyboard)
-    return ADMIN_MENU
-
-
-conv_handler = ConversationHandler(
-    entry_points=[CommandHandler("start", start_handler)],
-    states={
-        LANG_CHOOSE: [MessageHandler(filters.Regex("^(🇷🇺 Русский|🇬🇧 English)$"), language_chosen)],
-        ASK_AGE_COUNTRY: [MessageHandler(filters.TEXT & ~filters.COMMAND, ask_age_country)],
-        ASK_REGISTRATION: [MessageHandler(filters.TEXT & ~filters.COMMAND, ask_registration)],
-        ASK_PURPOSE: [MessageHandler(filters.TEXT & ~filters.COMMAND, ask_purpose)],
-        FINAL_MESSAGE: [MessageHandler(filters.TEXT & ~filters.COMMAND, final_message)],
-        ADMIN_MENU: [CallbackQueryHandler(admin_menu_handler)],
-        ADMIN_EDIT_TEXT: [MessageHandler(filters.TEXT & ~filters.COMMAND, admin_edit_text)],
-    },
-    fallbacks=[]
-)
-
-application.add_handler(CommandHandler("settings", settings_command))
-application.add_handler(conv_handler)
+    # Запуск бота
+    app.run_polling()
 
 if __name__ == "__main__":
-    print("✅ Бот запускается...")
-    logger.info("🚀 Bot started")
-    application.run_polling()
+    main()
+
 
