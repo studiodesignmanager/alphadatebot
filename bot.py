@@ -1,4 +1,3 @@
-
 import os
 import json
 import logging
@@ -112,6 +111,7 @@ async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 def main():
     BOT_TOKEN = os.getenv("BOT_TOKEN")
+    print(f"BOT_TOKEN={BOT_TOKEN}")  # <-- Вот этот вывод для проверки
     if not BOT_TOKEN:
         raise RuntimeError("Error: BOT_TOKEN environment variable is not set!")
 
@@ -135,6 +135,4 @@ def main():
 
 if __name__ == "__main__":
     main()
-
-
 
