@@ -1,3 +1,4 @@
+
 import json
 import os
 from dotenv import load_dotenv
@@ -67,7 +68,12 @@ def load_texts():
         return default_texts
     else:
         with open(SETTINGS_FILE, "r", encoding="utf-8") as f:
-            return json.load(f)
+            texts = json.load(f)
+        # Гарантируем наличие ключей, чтобы избежать KeyError
+        for key, val in default_texts.items():
+            if key not in texts:
+                texts[key] = val
+        return texts
 
 
 def save_texts(texts):
@@ -100,6 +106,7 @@ admin_menu_keyboard = InlineKeyboardMarkup([
 
 
 async def start_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    logger.info("User %s started the bot", update.effective_user.id)
     await update.message.reply_text(texts["choose_language"], reply_markup=language_keyboard)
     context.user_data.clear()
     return LANG_CHOOSE
