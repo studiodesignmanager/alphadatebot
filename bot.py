@@ -30,11 +30,11 @@ def load_texts():
     except FileNotFoundError:
         default_texts = {
             "ru": {
-                "welcome_message": "Добро пожаловать!",
+                "welcome_message": "👋 Добро пожаловать!\n\nЭтот бот поможет вам сделать первый шаг к новым отношениям.\nОтвечайте искренне — это важный шаг навстречу новому знакомству 💖",
                 "first_question": "У вас были регистрации на международных сайтах знакомств ранее?"
             },
             "en": {
-                "welcome_message": "Welcome!",
+                "welcome_message": "👋 Welcome!\n\nThis bot will help you take the first step toward a new relationship.\nBe honest — it's an important step toward meaningful connection 💖",
                 "first_question": "Have you registered on international dating sites before?"
             }
         }
@@ -49,6 +49,7 @@ def save_texts(texts):
 texts = load_texts()
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    logger.info(f"/start from user {update.effective_user.id}")
     reply_keyboard = [["Русский", "English"]]
     await update.message.reply_text(
         "Please choose your language / Пожалуйста, выберите язык:",
@@ -58,6 +59,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def choose_language(update: Update, context: ContextTypes.DEFAULT_TYPE):
     lang = update.message.text.lower()
+    logger.info(f"Language chosen: {lang} by user {update.effective_user.id}")
     if lang.startswith("рус"):
         context.user_data["lang"] = "ru"
     elif lang.startswith("eng"):
@@ -151,19 +153,16 @@ async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("Действие отменено.", reply_markup=ReplyKeyboardRemove())
     return ConversationHandler.END
 
-async def handle_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    text = update.message.text
+async def handle_settings_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
+    if user_id != ADMIN_ID:
+        await update.message.reply_text("У вас нет доступа к этой команде.")
+        return
 
-    if text == "Настройки" and user_id == ADMIN_ID:
-        return await edit_texts_start(update, context)
-    else:
-        await update.message.reply_text("Команда не распознана. Нажмите /start чтобы начать.")
+    return await edit_texts_start(update, context)
 
 def main():
     BOT_TOKEN = os.getenv("BOT_TOKEN")
-    print(f"BOT_TOKEN is: {BOT_TOKEN}")  # вывод токена для проверки
-
     if not BOT_TOKEN:
         raise RuntimeError("Error: BOT_TOKEN environment variable is not set!")
 
@@ -183,7 +182,12 @@ def main():
     )
 
     app.add_handler(conv_handler)
-    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_menu))
+
+    # Обработчик для команды "Настройки" от админа вне ConversationHandler
+    app.add_handler(MessageHandler(
+        filters.Regex("^(Настройки)$") & filters.User(user_id=ADMIN_ID),
+        handle_settings_command
+    ))
 
     app.run_polling()
 
