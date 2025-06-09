@@ -10,6 +10,7 @@ from telegram.ext import (
     ContextTypes,
     ConversationHandler,
 )
+from dotenv import load_dotenv
 
 logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
@@ -21,7 +22,7 @@ TEXTS_FILE = "texts.json"
 
 CHOOSING_LANGUAGE, ASKING_FIRST_QUESTION, ASKING_SECOND_QUESTION, CHOOSING_TEXT, TYPING_NEW_TEXT = range(5)
 
-ADMIN_ID = 486225736  # Telegram ID админа
+ADMIN_ID = 486225736  # Will be overwritten by .env if available
 
 
 def load_texts():
@@ -76,8 +77,6 @@ async def choose_language(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return CHOOSING_LANGUAGE
 
     user_lang = context.user_data["lang"]
-    user_id = update.effective_user.id
-
     await update.message.reply_text(texts[user_lang]["welcome_message"])
     await update.message.reply_text(texts[user_lang]["first_question"], reply_markup=ReplyKeyboardRemove())
 
@@ -172,9 +171,16 @@ async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 def main():
+    load_dotenv()
     BOT_TOKEN = os.getenv("BOT_TOKEN")
     if not BOT_TOKEN:
         raise RuntimeError("Error: BOT_TOKEN environment variable is not set!")
+
+    global ADMIN_ID
+    try:
+        ADMIN_ID = int(os.getenv("ADMIN_ID", "486225736"))
+    except ValueError:
+        raise RuntimeError("Error: ADMIN_ID environment variable is invalid!")
 
     app = ApplicationBuilder().token(BOT_TOKEN).build()
 
@@ -205,7 +211,6 @@ def main():
 
 if __name__ == "__main__":
     main()
-
 
 
 
