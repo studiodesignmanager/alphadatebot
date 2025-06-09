@@ -1,21 +1,13 @@
-
 {
-  "LANGUAGE_CHOICES": {
-    "ru": "РУССКИЙ",
-    "en": "ENGLISH"
+  "ru": {
+    "question_1": "У вас были регистрации на международных сайтах знакомствах ранее?",
+    "question_2": "С какой целью интересует регистрация?",
+    "final": "Спасибо! Мы свяжемся с вами в ближайшее время"
   },
-  "texts": {
-    "ru": {
-      "welcome": "Пожалуйста, выберите язык:",
-      "question1": "У вас были регистрации на международных сайтах знакомствах ранее?",
-      "question2": "С какой целью интересует регистрация?",
-      "thanks": "Спасибо! Мы свяжемся с вами в ближайшее время"
-    },
-    "en": {
-      "welcome": "Please choose a language:",
-      "question1": "Have you registered on any international dating sites before?",
-      "question2": "What is your reason for signing up?",
-      "thanks": "Thank you! We will get in touch with you shortly."
-    }
+  "en": {
+    "question_1": "Have you registered on any international dating sites before?",
+    "question_2": "What is your reason for signing up?",
+    "final": "Thank you! We will get in touch with you shortly."
   }
 }
+
