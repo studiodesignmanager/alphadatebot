@@ -13,35 +13,37 @@ from telegram.ext import (
     ConversationHandler,
 )
 
-# Загрузка переменных окружения
+# --- Загрузка .env ---
 load_dotenv(dotenv_path=Path(__file__).parent / ".env")
+
 BOT_TOKEN = os.getenv("BOT_TOKEN")
-ADMIN_ID = int(os.getenv("ADMIN_ID"))
+ADMIN_ID = int(os.getenv("ADMIN_ID") or 0)
 
 if not BOT_TOKEN:
     raise RuntimeError("Error: BOT_TOKEN environment variable is not set!")
 
-# Включаем логирование
-logging.basicConfig(level=logging.INFO)
+# --- Логирование ---
+logging.basicConfig(
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO
+)
 logger = logging.getLogger(__name__)
 
-# Состояния для ConversationHandler
+# --- Состояния для ConversationHandler ---
 LANGUAGE, QUESTION1, QUESTION2 = range(3)
 
-# Загрузка текстов из файла
-TEXTS_FILE = "texts.json"
-if not os.path.exists(TEXTS_FILE):
+# --- Работа с файлами текстов ---
+TEXTS_FILE = Path(__file__).parent / "texts.json"
+if not TEXTS_FILE.exists():
     raise FileNotFoundError("Файл texts.json не найден!")
 
 with open(TEXTS_FILE, "r", encoding="utf-8") as f:
     texts = json.load(f)
 
-user_data_store = {}
-
 def save_texts():
     with open(TEXTS_FILE, "w", encoding="utf-8") as f:
-        json.dump(texts, f, indent=2, ensure_ascii=False)
+        json.dump(texts, f, ensure_ascii=False, indent=2)
 
+# --- Хендлеры ---
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     reply_keyboard = [["РУССКИЙ", "ENGLISH"]]
@@ -51,25 +53,21 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
     return LANGUAGE
 
-
 async def language(update: Update, context: ContextTypes.DEFAULT_TYPE):
     lang = update.message.text
     if lang not in ["РУССКИЙ", "ENGLISH"]:
         await update.message.reply_text("Пожалуйста, выберите язык с помощью кнопок.")
         return LANGUAGE
-
     context.user_data["lang"] = "ru" if lang == "РУССКИЙ" else "en"
     q1 = texts[context.user_data["lang"]]["question_1"]
     await update.message.reply_text(q1, reply_markup=ReplyKeyboardRemove())
     return QUESTION1
-
 
 async def question1(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data["answer_1"] = update.message.text
     q2 = texts[context.user_data["lang"]]["question_2"]
     await update.message.reply_text(q2)
     return QUESTION2
-
 
 async def question2(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data["answer_2"] = update.message.text
@@ -78,47 +76,52 @@ async def question2(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(final)
     return ConversationHandler.END
 
-
 async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("Отменено.", reply_markup=ReplyKeyboardRemove())
     return ConversationHandler.END
 
-
-# === Админка ===
+# --- Админка ---
 
 async def edit(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.message.from_user.id
     if user_id != ADMIN_ID:
         await update.message.reply_text("Доступ запрещен.")
         return
-
-    message = "Текущие тексты:\n"
-    for lang, parts in texts.items():
-        message += f"\n[{lang.upper()}]\n"
-        for key, val in parts.items():
-            message += f"{key}: {val}\n"
-    message += "\nЧтобы изменить текст, отправьте в формате:\nLANG|KEY|NEW_TEXT\nПример: ru|question_1|Новый текст"
-    await update.message.reply_text(message)
-
+    msg = "Текущие тексты:\n\n"
+    for lang_code, entries in texts.items():
+        msg += f"[{lang_code.upper()}]\n"
+        for key, val in entries.items():
+            msg += f"{key}: {val}\n"
+        msg += "\n"
+    msg += (
+        "Чтобы изменить текст, отправьте сообщение в формате:\n"
+        "`lang|key|новый текст`\n"
+        "Пример:\n`ru|question_1|Новый текст вопроса`"
+    )
+    await update.message.reply_text(msg, parse_mode="Markdown")
 
 async def handle_edit(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.message.from_user.id
     if user_id != ADMIN_ID:
         return
-
+    text = update.message.text
     try:
-        lang, key, new_text = update.message.text.split("|", 2)
+        lang, key, new_text = text.split("|", 2)
+        lang = lang.strip().lower()
+        key = key.strip()
+        new_text = new_text.strip()
         if lang in texts and key in texts[lang]:
             texts[lang][key] = new_text
             save_texts()
-            await update.message.reply_text("Текст обновлен.")
+            await update.message.reply_text("Текст успешно обновлен.")
         else:
-            await update.message.reply_text("Неверный ключ или язык.")
+            await update.message.reply_text("Ошибка: неверный язык или ключ.")
     except Exception:
-        await update.message.reply_text("Ошибка формата. Используйте: lang|key|new_text")
+        await update.message.reply_text(
+            "Ошибка формата.\nИспользуйте формат: lang|key|новый текст"
+        )
 
-
-# === Запуск ===
+# --- Основной запуск ---
 
 def main():
     app = ApplicationBuilder().token(BOT_TOKEN).build()
@@ -140,9 +143,9 @@ def main():
     logger.info("Бот запущен...")
     app.run_polling()
 
-
 if __name__ == "__main__":
     main()
+
 
 
 
