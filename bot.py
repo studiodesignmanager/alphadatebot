@@ -148,7 +148,10 @@ def main():
     app.run_polling()
 
 if __name__ == "__main__":
-    main()
+    application = ApplicationBuilder().token(BOT_TOKEN).build()
+    application.add_handler(conv_handler)
+    application.run_polling()
+
 
 
 
