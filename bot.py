@@ -1,159 +1,172 @@
-import logging
 import json
-from pathlib import Path
-from telegram import Update, ReplyKeyboardMarkup, ReplyKeyboardRemove
+import logging
+import os
+
+from telegram import (
+    ReplyKeyboardMarkup,
+    ReplyKeyboardRemove,
+    Update,
+    InlineKeyboardButton,
+    InlineKeyboardMarkup,
+)
 from telegram.ext import (
-    ApplicationBuilder,
+    Application,
     CommandHandler,
-    MessageHandler,
     ContextTypes,
-    filters,
     ConversationHandler,
+    MessageHandler,
+    filters,
+    CallbackQueryHandler,
 )
 
-BOT_TOKEN = "7110528714:AAG0mSUIkaEsbsJBL4FeCIq461HI2-xqx0g"
-ADMIN_ID = 486225736
-
-logging.basicConfig(
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO
-)
+logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-LANGUAGE, QUESTION1, QUESTION2 = range(3)
+ADMIN_ID = 486225736
 
-TEXTS_FILE = Path(__file__).parent / "texts.json"
-if not TEXTS_FILE.exists():
-    raise FileNotFoundError("Файл texts.json не найден!")
+LANGUAGE, QUESTION_1, QUESTION_2 = range(3)
+SETTINGS_MENU, EDIT_LANGUAGE, EDIT_KEY, EDIT_VALUE = range(3, 7)
 
-with open(TEXTS_FILE, "r", encoding="utf-8") as f:
+with open("texts.json", encoding="utf-8") as f:
     texts = json.load(f)
 
-def save_texts():
-    with open(TEXTS_FILE, "w", encoding="utf-8") as f:
-        json.dump(texts, f, ensure_ascii=False, indent=2)
+user_data = {}
+edit_data = {}
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     keyboard = [["РУССКИЙ", "ENGLISH"]]
     await update.message.reply_text(
         "Выберите язык / Choose your language:",
-        reply_markup=ReplyKeyboardMarkup(keyboard, resize_keyboard=True),
+        reply_markup=ReplyKeyboardMarkup(keyboard, one_time_keyboard=True, resize_keyboard=True),
     )
     return LANGUAGE
 
 async def language(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    text = update.message.text
-    if text == "РУССКИЙ":
-        context.user_data["lang"] = "ru"
-    elif text == "ENGLISH":
-        context.user_data["lang"] = "en"
-    else:
-        await update.message.reply_text("Пожалуйста, выберите язык с помощью кнопок.")
-        return LANGUAGE
+    lang = "ru" if "РУССКИЙ" in update.message.text else "en"
+    context.user_data["lang"] = lang
+    user_data[update.effective_user.id] = {"lang": lang}
 
     await update.message.reply_text(
-        texts[context.user_data["lang"]]["question_1"],
-        reply_markup=ReplyKeyboardRemove(),
+        texts[lang]["question_1"],
+        reply_markup=ReplyKeyboardRemove()
     )
-    return QUESTION1
+    return QUESTION_1
 
-async def question1(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    answer = update.message.text
-    context.user_data["answer_1"] = answer
+async def question_1(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_data[update.effective_user.id]["q1"] = update.message.text
+    lang = user_data[update.effective_user.id]["lang"]
 
-    # Отправляем админу сообщение с ответом
-    await context.bot.send_message(
-        chat_id=ADMIN_ID,
-        text=f"Ответ на первый вопрос от пользователя {update.effective_user.id} ({update.effective_user.full_name}):\n{answer}"
-    )
+    await notify_admin(update, f"Q1: {update.message.text}")
 
-    await update.message.reply_text(texts[context.user_data["lang"]]["question_2"])
-    return QUESTION2
+    await update.message.reply_text(texts[lang]["question_2"])
+    return QUESTION_2
 
-async def question2(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    answer = update.message.text
-    context.user_data["answer_2"] = answer
+async def question_2(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_data[update.effective_user.id]["q2"] = update.message.text
+    lang = user_data[update.effective_user.id]["lang"]
 
-    # Отправляем админу сообщение с ответом
-    await context.bot.send_message(
-        chat_id=ADMIN_ID,
-        text=f"Ответ на второй вопрос от пользователя {update.effective_user.id} ({update.effective_user.full_name}):\n{answer}"
-    )
-
-    await update.message.reply_text(texts[context.user_data["lang"]]["final"])
+    await notify_admin(update, f"Q2: {update.message.text}")
+    await update.message.reply_text(texts[lang]["final"])
     return ConversationHandler.END
 
-async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("Отменено.", reply_markup=ReplyKeyboardRemove())
-    return ConversationHandler.END
+async def notify_admin(update: Update, message: str):
+    user = update.effective_user
+    if user.username:
+        user_ref = f"@{user.username}"
+    else:
+        user_ref = f"[user](tg://user?id={user.id})"
+    full_msg = f"{user_ref}:\n{message}"
+    await context.bot.send_message(chat_id=ADMIN_ID, text=full_msg, parse_mode="Markdown")
 
-# Админка для редактирования текстов
-
-async def edit(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user_id = update.message.from_user.id
-    if user_id != ADMIN_ID:
-        await update.message.reply_text("Доступ запрещён.")
+async def admin(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if update.effective_user.id != ADMIN_ID:
         return
+    keyboard = [
+        [InlineKeyboardButton("Редактировать тексты", callback_data="edit_texts")]
+    ]
+    await update.message.reply_text("Настройки:", reply_markup=InlineKeyboardMarkup(keyboard))
+    return SETTINGS_MENU
 
-    msg = "Текущие тексты:\n\n"
-    for lang_code, vals in texts.items():
-        msg += f"[{lang_code}]\n"
-        for key, val in vals.items():
-            msg += f"{key}: {val}\n"
-        msg += "\n"
-    msg += (
-        "Чтобы изменить текст, отправьте сообщение в формате:\n"
-        "lang|key|новый текст\n"
-        "Например:\n"
-        "ru|question_1|Новый текст вопроса"
-    )
-    await update.message.reply_text(msg)
+async def settings_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    if query.data == "edit_texts":
+        keyboard = [
+            [InlineKeyboardButton("Русский", callback_data="edit_lang_ru")],
+            [InlineKeyboardButton("English", callback_data="edit_lang_en")]
+        ]
+        await query.edit_message_text("Выберите язык:", reply_markup=InlineKeyboardMarkup(keyboard))
+        return EDIT_LANGUAGE
 
-async def handle_edit(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user_id = update.message.from_user.id
-    if user_id != ADMIN_ID:
-        return  # Игнорируем сообщения не от админа
+async def select_language(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    lang = "ru" if "ru" in query.data else "en"
+    edit_data["lang"] = lang
 
-    text = update.message.text
-    if "|" not in text:
-        return  # Это не команда редактирования, игнорируем
+    keys = list(texts[lang].keys())
+    keyboard = [[InlineKeyboardButton(key, callback_data=f"edit_key_{key}")] for key in keys]
+    await query.edit_message_text("Выберите текст для редактирования:", reply_markup=InlineKeyboardMarkup(keyboard))
+    return EDIT_KEY
 
-    try:
-        lang, key, new_text = text.split("|", 2)
-        lang = lang.strip().lower()
-        key = key.strip()
-        new_text = new_text.strip()
+async def select_key(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    key = query.data.split("_", 2)[-1]
+    edit_data["key"] = key
 
-        if lang in texts and key in texts[lang]:
-            texts[lang][key] = new_text
-            save_texts()
-            await update.message.reply_text("Текст успешно обновлён.")
-        else:
-            await update.message.reply_text("Ошибка: неверный язык или ключ.")
-    except Exception as e:
-        await update.message.reply_text("Ошибка формата. Используйте: lang|key|новый текст")
+    current_value = texts[edit_data["lang"]][key]
+    await query.edit_message_text(f"Текущий текст:\n\n{current_value}\n\nОтправьте новый текст:")
+    return EDIT_VALUE
+
+async def save_new_value(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    lang = edit_data["lang"]
+    key = edit_data["key"]
+    texts[lang][key] = update.message.text
+
+    with open("texts.json", "w", encoding="utf-8") as f:
+        json.dump(texts, f, ensure_ascii=False, indent=2)
+
+    await update.message.reply_text("Текст обновлён.")
+    return ConversationHandler.END
 
 def main():
-    app = ApplicationBuilder().token(BOT_TOKEN).build()
+    token = os.getenv("BOT_TOKEN")
+    if not token:
+        raise ValueError("Please set BOT_TOKEN environment variable")
+
+    application = Application.builder().token(token).build()
 
     conv_handler = ConversationHandler(
         entry_points=[CommandHandler("start", start)],
         states={
             LANGUAGE: [MessageHandler(filters.TEXT & ~filters.COMMAND, language)],
-            QUESTION1: [MessageHandler(filters.TEXT & ~filters.COMMAND, question1)],
-            QUESTION2: [MessageHandler(filters.TEXT & ~filters.COMMAND, question2)],
+            QUESTION_1: [MessageHandler(filters.TEXT & ~filters.COMMAND, question_1)],
+            QUESTION_2: [MessageHandler(filters.TEXT & ~filters.COMMAND, question_2)],
         },
-        fallbacks=[CommandHandler("cancel", cancel)],
+        fallbacks=[],
     )
 
-    app.add_handler(conv_handler)
-    app.add_handler(CommandHandler("edit", edit))
-    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_edit))
+    admin_handler = ConversationHandler(
+        entry_points=[CommandHandler("admin", admin)],
+        states={
+            SETTINGS_MENU: [CallbackQueryHandler(settings_menu)],
+            EDIT_LANGUAGE: [CallbackQueryHandler(select_language)],
+            EDIT_KEY: [CallbackQueryHandler(select_key)],
+            EDIT_VALUE: [MessageHandler(filters.TEXT & ~filters.COMMAND, save_new_value)],
+        },
+        fallbacks=[],
+    )
+
+    application.add_handler(conv_handler)
+    application.add_handler(admin_handler)
 
     logger.info("Bot started")
-    app.run_polling()
+    application.run_polling()
 
 if __name__ == "__main__":
     main()
+
 
 
 
