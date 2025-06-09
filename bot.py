@@ -33,13 +33,13 @@ def load_texts():
     except FileNotFoundError:
         default_texts = {
             "ru": {
-                "welcome_message": "👋 Добро пожаловать!",
+                "welcome_message": "👋 Добро пожаловать!\n\nЭтот бот поможет вам сделать первый шаг к новым отношениям.\nОтвечайте искренне — это важный шаг навстречу новому знакомству 💖",
                 "first_question": "У вас были регистрации на международных сайтах знакомств ранее?",
                 "second_question": "С какой целью интересует регистрация?",
                 "thank_you": "Спасибо! Мы свяжемся с вами в ближайшее время."
             },
             "en": {
-                "welcome_message": "👋 Welcome!",
+                "welcome_message": "👋 Welcome!\n\nThis bot will help you take the first step toward a new relationship.\nBe honest — it's an important step toward meaningful connection 💖",
                 "first_question": "Have you registered on international dating sites before?",
                 "second_question": "What is your reason for signing up?",
                 "thank_you": "Thank you! We will get in touch with you shortly."
@@ -52,11 +52,12 @@ def load_texts():
 def save_texts(texts):
     with open(TEXTS_FILE, "w", encoding="utf-8") as f:
         json.dump(texts, f, ensure_ascii=False, indent=2)
+    logger.info("Saved texts to texts.json")
 
 
 texts = load_texts()
 
-
+# -- Handlers --
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     logger.info(f"/start from user {update.effective_user.id}")
     reply_keyboard = [["РУССКИЙ", "ENGLISH"]]
@@ -65,7 +66,6 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         reply_markup=ReplyKeyboardMarkup(reply_keyboard, one_time_keyboard=True, resize_keyboard=True),
     )
     return CHOOSING_LANGUAGE
-
 
 async def choose_language(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = update.message.text.strip().lower()
@@ -80,20 +80,18 @@ async def choose_language(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return CHOOSING_LANGUAGE
 
     user_lang = context.user_data["lang"]
-    logger.info(f"User {update.effective_user.id} selected language: {user_lang}")
+    logger.info(f"Language chosen: {user_lang}")
 
-    # Send welcome + first question
+    # Send welcome message and first question
     await update.message.reply_text(texts[user_lang]["welcome_message"])
     await update.message.reply_text(
         texts[user_lang]["first_question"],
         reply_markup=ReplyKeyboardRemove()
     )
-    await update.message.reply_text(
-        "(Пожалуйста, введите ответ ниже)" if user_lang == "ru" else "(Please type your answer below)",
-        reply_markup=ReplyKeyboardRemove()
-    )
+    # Prompt user to answer
+    prompt = "(Пожалуйста, введите ответ ниже)" if user_lang == "ru" else "(Please type your answer below)"
+    await update.message.reply_text(prompt)
     return ASKING_FIRST_QUESTION
-
 
 async def handle_first_question_response(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data["first_answer"] = update.message.text.strip()
@@ -101,19 +99,16 @@ async def handle_first_question_response(update: Update, context: ContextTypes.D
 
     # Send second question
     await update.message.reply_text(texts[user_lang]["second_question"])
-    await update.message.reply_text(
-        "(Пожалуйста, введите ответ ниже)" if user_lang == "ru" else "(Please type your answer below)",
-        reply_markup=ReplyKeyboardRemove()
-    )
+    prompt = "(Пожалуйста, введите ответ ниже)" if user_lang == "ru" else "(Please type your answer below)"
+    await update.message.reply_text(prompt)
     return ASKING_SECOND_QUESTION
-
 
 async def handle_second_question_response(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data["second_answer"] = update.message.text.strip()
     user_lang = context.user_data.get("lang", "en")
     user_id = update.effective_user.id
 
-    # Thank you
+    # Send thank you message
     await update.message.reply_text(texts[user_lang]["thank_you"], reply_markup=ReplyKeyboardRemove())
 
     # Admin settings button
@@ -126,23 +121,20 @@ async def handle_second_question_response(update: Update, context: ContextTypes.
 
     return ConversationHandler.END
 
-
 async def handle_settings_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user_id = update.effective_user.id
-    if user_id != ADMIN_ID:
-        await update.message.reply_text("У вас нет доступа к этой команде.")
+    if update.effective_user.id != ADMIN_ID:
+        await update.message.reply_text("У вас нет доступа.")
         return ConversationHandler.END
     return await edit_texts_start(update, context)
 
-
 async def edit_texts_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    reply_keyboard = [["welcome_message", "first_question"], ["second_question", "thank_you"], ["Cancel"]]
+    keys = ["welcome_message", "first_question", "second_question", "thank_you"]
+    kb = [keys[:2], keys[2:], ["Cancel"]]
     await update.message.reply_text(
         "Что хотите отредактировать?",
-        reply_markup=ReplyKeyboardMarkup(reply_keyboard, one_time_keyboard=True, resize_keyboard=True)
+        reply_markup=ReplyKeyboardMarkup(kb, one_time_keyboard=True, resize_keyboard=True)
     )
     return CHOOSING_TEXT
-
 
 async def choose_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
     choice = update.message.text.strip()
@@ -150,7 +142,7 @@ async def choose_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("Редактирование отменено.", reply_markup=ReplyKeyboardRemove())
         return ConversationHandler.END
     if choice not in ["welcome_message", "first_question", "second_question", "thank_you"]:
-        await update.message.reply_text("Пожалуйста, выберите из предложенных вариантов или 'Cancel'.")
+        await update.message.reply_text("Выберите из списка.")
         return CHOOSING_TEXT
 
     context.user_data["edit_key"] = choice
@@ -161,41 +153,39 @@ async def choose_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
     return TYPING_NEW_TEXT
 
-
 async def save_new_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
     key = context.user_data.get("edit_key")
     lang = context.user_data.get("editing_lang")
-    new = update.message.text.strip()
-    texts[lang][key] = new
+    texts[lang][key] = update.message.text.strip()
     save_texts(texts)
 
     if lang == "ru":
         context.user_data["editing_lang"] = "en"
         await update.message.reply_text(
-            f"Теперь отправьте текст [EN] для '{key}':\n{texts['en'][key]}"
+            f"Отправьте новый текст [EN] для '{key}':\n{texts['en'][key]}"
         )
         return TYPING_NEW_TEXT
     else:
         await update.message.reply_text("Текст обновлён для обоих языков!", reply_markup=ReplyKeyboardRemove())
         return ConversationHandler.END
 
-
 async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("Действие отменено.", reply_markup=ReplyKeyboardRemove())
+    await update.message.reply_text("Отмена.", reply_markup=ReplyKeyboardRemove())
     return ConversationHandler.END
 
 
 def main():
     load_dotenv()
-    bot_token = os.getenv("BOT_TOKEN")
-    if not bot_token:
+    token = os.getenv("BOT_TOKEN")
+    if not token:
         raise RuntimeError("Error: BOT_TOKEN environment variable is not set!")
+
     global ADMIN_ID
     ADMIN_ID = int(os.getenv("ADMIN_ID", str(ADMIN_ID)))
 
-    app = ApplicationBuilder().token(bot_token).build()
+    app = ApplicationBuilder().token(token).build()
 
-    conv = ConversationHandler(
+    conv_handler = ConversationHandler(
         entry_points=[CommandHandler("start", start)],
         states={
             CHOOSING_LANGUAGE: [MessageHandler(filters.TEXT & ~filters.COMMAND, choose_language)],
@@ -209,8 +199,11 @@ def main():
         per_chat=True,
     )
 
-    app.add_handler(conv)
-    app.add_handler(MessageHandler(filters.Regex("^(Настройки|Settings)$") & filters.User(user_id=ADMIN_ID), handle_settings_command))
+    app.add_handler(conv_handler)
+    app.add_handler(MessageHandler(
+        filters.Regex("^(Настройки|Settings)$") & filters.User(user_id=ADMIN_ID),
+        handle_settings_command
+    ))
 
     logger.info("Bot started polling...")
     app.run_polling()
