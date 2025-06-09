@@ -20,15 +20,18 @@ logger = logging.getLogger(__name__)
 
 TEXTS_FILE = "texts.json"
 
+# Состояния разговора
 CHOOSING_LANGUAGE, ASKING_FIRST_QUESTION, ASKING_SECOND_QUESTION, CHOOSING_TEXT, TYPING_NEW_TEXT = range(5)
 
-ADMIN_ID = 486225736  # Will be overwritten by .env if available
+ADMIN_ID = 486225736  # По умолчанию, можно переопределить из .env
 
 
 def load_texts():
     try:
         with open(TEXTS_FILE, "r", encoding="utf-8") as f:
-            return json.load(f)
+            texts = json.load(f)
+            logger.info("Texts loaded successfully.")
+            return texts
     except FileNotFoundError:
         default_texts = {
             "ru": {
@@ -45,12 +48,14 @@ def load_texts():
             }
         }
         save_texts(default_texts)
+        logger.info("Default texts created.")
         return default_texts
 
 
 def save_texts(texts):
     with open(TEXTS_FILE, "w", encoding="utf-8") as f:
         json.dump(texts, f, ensure_ascii=False, indent=2)
+    logger.info("Texts saved.")
 
 
 texts = load_texts()
@@ -77,6 +82,13 @@ async def choose_language(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return CHOOSING_LANGUAGE
 
     user_lang = context.user_data["lang"]
+    logger.info(f"User {update.effective_user.id} chose language: {user_lang}")
+
+    if user_lang not in texts:
+        logger.error(f"Language key '{user_lang}' not found in texts.")
+        await update.message.reply_text("Internal error: language texts not found.")
+        return ConversationHandler.END
+
     await update.message.reply_text(texts[user_lang]["welcome_message"])
     await update.message.reply_text(texts[user_lang]["first_question"], reply_markup=ReplyKeyboardRemove())
 
@@ -98,6 +110,7 @@ async def handle_second_question_response(update: Update, context: ContextTypes.
 
     await update.message.reply_text(texts[user_lang]["thank_you"])
 
+    # Для админа показываем кнопку Настройки / Settings
     if user_id == ADMIN_ID:
         buttons = [["Настройки"]] if user_lang == "ru" else [["Settings"]]
         await update.message.reply_text(
@@ -112,7 +125,7 @@ async def handle_settings_command(update: Update, context: ContextTypes.DEFAULT_
     user_id = update.effective_user.id
     if user_id != ADMIN_ID:
         await update.message.reply_text("У вас нет доступа к этой команде.")
-        return
+        return ConversationHandler.END
 
     return await edit_texts_start(update, context)
 
@@ -132,10 +145,14 @@ async def choose_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("Редактирование отменено.", reply_markup=ReplyKeyboardRemove())
         return ConversationHandler.END
 
+    if text_choice not in ["welcome_message", "first_question", "second_question", "thank_you"]:
+        await update.message.reply_text("Пожалуйста, выберите из предложенных вариантов или 'Cancel'.")
+        return CHOOSING_TEXT
+
     context.user_data["edit_key"] = text_choice
 
     await update.message.reply_text(
-        f"Текущий текст на русском: \n{texts['ru'].get(text_choice, '')}\n\nОтправьте новый текст на русском:",
+        f"Текущий текст на русском:\n\n{texts['ru'].get(text_choice, '')}\n\nОтправьте новый текст на русском:",
         reply_markup=ReplyKeyboardRemove(),
     )
     context.user_data["editing_lang"] = "ru"
@@ -178,7 +195,7 @@ def main():
 
     global ADMIN_ID
     try:
-        ADMIN_ID = int(os.getenv("ADMIN_ID", "486225736"))
+        ADMIN_ID = int(os.getenv("ADMIN_ID", str(ADMIN_ID)))
     except ValueError:
         raise RuntimeError("Error: ADMIN_ID environment variable is invalid!")
 
@@ -200,12 +217,13 @@ def main():
 
     app.add_handler(conv_handler)
 
-    # Настройки доступна как кнопка "Настройки" или "Settings" в зависимости от языка
+    # Команда Настройки / Settings для админа по кнопке
     app.add_handler(MessageHandler(
         filters.Regex("^(Настройки|Settings)$") & filters.User(user_id=ADMIN_ID),
         handle_settings_command
     ))
 
+    logger.info("Bot started polling...")
     app.run_polling()
 
 
