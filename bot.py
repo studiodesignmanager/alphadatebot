@@ -1,3 +1,5 @@
+
+
 import logging
 import os
 import json
@@ -28,10 +30,10 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# --- Состояния для ConversationHandler ---
+# --- Состояния ---
 LANGUAGE, QUESTION1, QUESTION2 = range(3)
 
-# --- Работа с файлами текстов ---
+# --- Файл с текстами ---
 TEXTS_FILE = Path(__file__).parent / "texts.json"
 if not TEXTS_FILE.exists():
     raise FileNotFoundError("Файл texts.json не найден!")
@@ -46,34 +48,30 @@ def save_texts():
 # --- Хендлеры ---
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    reply_keyboard = [["РУССКИЙ", "ENGLISH"]]
+    keyboard = [["РУССКИЙ", "ENGLISH"]]
     await update.message.reply_text(
         "Выберите язык / Choose your language:",
-        reply_markup=ReplyKeyboardMarkup(reply_keyboard, resize_keyboard=True),
+        reply_markup=ReplyKeyboardMarkup(keyboard, resize_keyboard=True),
     )
     return LANGUAGE
 
 async def language(update: Update, context: ContextTypes.DEFAULT_TYPE):
     lang = update.message.text
     if lang not in ["РУССКИЙ", "ENGLISH"]:
-        await update.message.reply_text("Пожалуйста, выберите язык с помощью кнопок.")
+        await update.message.reply_text("Пожалуйста, выберите язык кнопками.")
         return LANGUAGE
     context.user_data["lang"] = "ru" if lang == "РУССКИЙ" else "en"
-    q1 = texts[context.user_data["lang"]]["question_1"]
-    await update.message.reply_text(q1, reply_markup=ReplyKeyboardRemove())
+    await update.message.reply_text(texts[context.user_data["lang"]]["question_1"], reply_markup=ReplyKeyboardRemove())
     return QUESTION1
 
 async def question1(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data["answer_1"] = update.message.text
-    q2 = texts[context.user_data["lang"]]["question_2"]
-    await update.message.reply_text(q2)
+    await update.message.reply_text(texts[context.user_data["lang"]]["question_2"])
     return QUESTION2
 
 async def question2(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data["answer_2"] = update.message.text
-    lang = context.user_data["lang"]
-    final = texts[lang]["final"]
-    await update.message.reply_text(final)
+    await update.message.reply_text(texts[context.user_data["lang"]]["final"])
     return ConversationHandler.END
 
 async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -88,17 +86,17 @@ async def edit(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("Доступ запрещен.")
         return
     msg = "Текущие тексты:\n\n"
-    for lang_code, entries in texts.items():
-        msg += f"[{lang_code.upper()}]\n"
-        for key, val in entries.items():
+    for lang_code, vals in texts.items():
+        msg += f"[{lang_code}]\n"
+        for key, val in vals.items():
             msg += f"{key}: {val}\n"
         msg += "\n"
     msg += (
         "Чтобы изменить текст, отправьте сообщение в формате:\n"
-        "`lang|key|новый текст`\n"
-        "Пример:\n`ru|question_1|Новый текст вопроса`"
+        "lang|key|новый текст\n"
+        "Например:\nru|question_1|Новый текст вопроса"
     )
-    await update.message.reply_text(msg, parse_mode="Markdown")
+    await update.message.reply_text(msg)
 
 async def handle_edit(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.message.from_user.id
@@ -117,11 +115,9 @@ async def handle_edit(update: Update, context: ContextTypes.DEFAULT_TYPE):
         else:
             await update.message.reply_text("Ошибка: неверный язык или ключ.")
     except Exception:
-        await update.message.reply_text(
-            "Ошибка формата.\nИспользуйте формат: lang|key|новый текст"
-        )
+        await update.message.reply_text("Ошибка формата. Используйте: lang|key|новый текст")
 
-# --- Основной запуск ---
+# --- Основная функция запуска ---
 
 def main():
     app = ApplicationBuilder().token(BOT_TOKEN).build()
@@ -140,12 +136,11 @@ def main():
     app.add_handler(CommandHandler("edit", edit))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_edit))
 
-    logger.info("Бот запущен...")
+    logger.info("Bot started")
     app.run_polling()
 
 if __name__ == "__main__":
     main()
-
 
 
 
