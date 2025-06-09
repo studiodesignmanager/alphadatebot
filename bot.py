@@ -1,5 +1,3 @@
-
-
 import logging
 import os
 import json
@@ -22,7 +20,6 @@ from telegram.ext import (
 BOT_TOKEN = "7110528714:AAG0mSUIkaEsbsJBL4FeCIq461HI2-xqx0g"
 ADMIN_ID = 486225736
 
-
 # --- Логирование ---
 logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO
@@ -39,6 +36,8 @@ if not TEXTS_FILE.exists():
 
 with open(TEXTS_FILE, "r", encoding="utf-8") as f:
     texts = json.load(f)
+
+print("Loaded languages from texts.json:", list(texts.keys()))
 
 def save_texts():
     with open(TEXTS_FILE, "w", encoding="utf-8") as f:
@@ -148,9 +147,8 @@ def main():
     app.run_polling()
 
 if __name__ == "__main__":
-    application = ApplicationBuilder().token(BOT_TOKEN).build()
-    application.add_handler(conv_handler)
-    application.run_polling()
+    main()
+
 
 
 
