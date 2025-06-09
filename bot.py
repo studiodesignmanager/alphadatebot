@@ -60,7 +60,12 @@ async def language(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("Пожалуйста, выберите язык кнопками.")
         return LANGUAGE
     context.user_data["lang"] = "ru" if lang == "РУССКИЙ" else "en"
-    await update.message.reply_text(texts[context.user_data["lang"]]["question_1"], reply_markup=ReplyKeyboardRemove())
+    print("Selected lang:", context.user_data["lang"])
+    print("Available langs in texts:", list(texts.keys()))
+    lang_key = context.user_data["lang"]
+    if lang_key not in texts:
+        lang_key = "ru"  # fallback если нет ключа
+    await update.message.reply_text(texts[lang_key]["question_1"], reply_markup=ReplyKeyboardRemove())
     return QUESTION1
 
 async def question1(update: Update, context: ContextTypes.DEFAULT_TYPE):
