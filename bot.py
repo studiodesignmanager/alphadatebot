@@ -15,14 +15,13 @@ from telegram.ext import (
     ConversationHandler,
 )
 
-# --- Загрузка .env ---
-load_dotenv(dotenv_path=Path(__file__).parent / ".env")
+# --- Загрузка .env отключена ---
+# from dotenv import load_dotenv
+# load_dotenv(dotenv_path=Path(__file__).parent / ".env")
 
-BOT_TOKEN = os.getenv("BOT_TOKEN")
-ADMIN_ID = int(os.getenv("ADMIN_ID") or 0)
+BOT_TOKEN = "7110528714:AAG0mSUIkaEsbsJBL4FeCIq461HI2-xqx0g"
+ADMIN_ID = 486225736
 
-if not BOT_TOKEN:
-    raise RuntimeError("Error: BOT_TOKEN environment variable is not set!")
 
 # --- Логирование ---
 logging.basicConfig(
