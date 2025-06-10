@@ -14,11 +14,10 @@ from telegram.ext import (
 )
 
 ADMIN_ID = 486225736
-BOT_TOKEN = "ВАШ_ТОКЕН_ЗДЕСЬ"  # <-- сюда ставь свой токен
+BOT_TOKEN = "7110528714:AAG0mSUIkaEsbsJBL4FeCIq461HI2-xqx0g"
 
 LANG, Q1, Q2, FINAL, ADMIN_MENU, EDIT_LANG, EDIT_TEXT = range(7)
 
-# Загрузка текстов из файла
 def load_texts():
     try:
         with open("texts.json", "r", encoding="utf-8") as f:
@@ -37,14 +36,12 @@ def load_texts():
             }
         }
 
-# Сохранение текстов в файл
 def save_texts(texts):
     with open("texts.json", "w", encoding="utf-8") as f:
         json.dump(texts, f, ensure_ascii=False, indent=2)
 
 texts = load_texts()
 
-# Старт — выбор языка, + кнопка Настройки для админа
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     buttons = [["РУССКИЙ", "ENGLISH"]]
@@ -57,7 +54,6 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def language(update: Update, context: ContextTypes.DEFAULT_TYPE):
     choice = update.message.text.lower()
     if choice == "настройки":
-        # Переход в меню админа
         await update.message.reply_text(
             "Админка: Выберите язык для редактирования:", 
             reply_markup=ReplyKeyboardMarkup([["RU", "EN"], ["Назад"]], one_time_keyboard=True, resize_keyboard=True)
@@ -70,7 +66,6 @@ async def language(update: Update, context: ContextTypes.DEFAULT_TYPE):
     else:
         await update.message.reply_text("Пожалуйста, выберите язык кнопкой.")
         return LANG
-    # Спрашиваем первый вопрос
     await update.message.reply_text(texts[context.user_data["lang"]]["question_1"], reply_markup=ReplyKeyboardRemove())
     return Q1
 
@@ -82,23 +77,25 @@ async def q1(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def q2(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data["q2"] = update.message.text
     await update.message.reply_text(texts[context.user_data["lang"]]["final"])
-    # Отправляем ответы админу сразу
-    admin_msg = f"Ответы пользователя @{update.effective_user.username or '[нет username]'} (id: {update.effective_user.id}):\n" \
-                f"Язык: {context.user_data['lang']}\n" \
-                f"Вопрос 1: {context.user_data['q1']}\n" \
-                f"Вопрос 2: {context.user_data['q2']}\n" \
-                f"https://t.me/{update.effective_user.username}" if update.effective_user.username else f"tg://user?id={update.effective_user.id}"
+    username = update.effective_user.username
+    user_id = update.effective_user.id
+    link = f"https://t.me/{username}" if username else f"tg://user?id={user_id}"
+    admin_msg = (
+        f"Ответы пользователя @{username if username else '[нет username]'} (id: {user_id}):\n"
+        f"Язык: {context.user_data['lang']}\n"
+        f"Вопрос 1: {context.user_data['q1']}\n"
+        f"Вопрос 2: {context.user_data['q2']}\n"
+        f"Ссылка: {link}"
+    )
     try:
         await context.bot.send_message(ADMIN_ID, admin_msg)
     except Exception:
         pass
     return ConversationHandler.END
 
-# Админка: выбор языка для редактирования или возврат назад
 async def admin_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
     choice = update.message.text.lower()
     if choice == "назад":
-        # Возврат к выбору языка для пользователя
         buttons = [["РУССКИЙ", "ENGLISH"]]
         buttons[0].append("Настройки")
         await update.message.reply_text("Выберите язык / Select language:", reply_markup=ReplyKeyboardMarkup(buttons, one_time_keyboard=True, resize_keyboard=True))
@@ -110,7 +107,6 @@ async def admin_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
     else:
         await update.message.reply_text("Пожалуйста, выберите язык кнопкой.")
         return ADMIN_MENU
-    # Выбор текста для редактирования
     await update.message.reply_text(
         f"Выберите текст для редактирования ({context.user_data['edit_lang']}):",
         reply_markup=ReplyKeyboardMarkup([["question_1", "question_2", "final"], ["Назад"]], one_time_keyboard=True, resize_keyboard=True)
@@ -120,7 +116,6 @@ async def admin_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def edit_lang(update: Update, context: ContextTypes.DEFAULT_TYPE):
     choice = update.message.text.lower()
     if choice == "назад":
-        # Возврат в меню админа — выбор языка
         await update.message.reply_text(
             "Админка: Выберите язык для редактирования:",
             reply_markup=ReplyKeyboardMarkup([["RU", "EN"], ["Назад"]], one_time_keyboard=True, resize_keyboard=True)
@@ -140,7 +135,6 @@ async def edit_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
     texts[lang][key] = new_text
     save_texts(texts)
     await update.message.reply_text(f"Текст для {key} ({lang}) обновлён.")
-    # После сохранения — возвращаем в меню редактирования языков
     await update.message.reply_text(
         "Админка: Выберите язык для редактирования:",
         reply_markup=ReplyKeyboardMarkup([["RU", "EN"], ["Назад"]], one_time_keyboard=True, resize_keyboard=True)
@@ -173,6 +167,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
 
