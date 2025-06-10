@@ -21,7 +21,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 ADMIN_ID = 486225736  # замените на свой admin ID
-BOT_TOKEN =  7110528714:AAG0mSUIkaEsbsJBL4FeCIq461HI2-xqx0g # Токен бота здесь, строкой
+BOT_TOKEN = "7110528714:AAG0mSUIkaEsbsJBL4FeCIq461HI2-xqx0g"  # Токен бота здесь, строкой
 
 # Состояния разговора
 LANGUAGE, Q1, Q2, FINAL = range(4)
