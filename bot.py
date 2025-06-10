@@ -159,11 +159,13 @@ def main():
             EDIT_TEXT: [MessageHandler(filters.TEXT & ~filters.COMMAND, edit_text)],
         },
         fallbacks=[CommandHandler("cancel", cancel)],
+        allow_reentry=True,  # 👈 позволяет повторно запускать /start в любой момент
     )
 
     application.add_handler(conv_handler)
 
     application.run_polling()
+
 
 if __name__ == "__main__":
     main()
