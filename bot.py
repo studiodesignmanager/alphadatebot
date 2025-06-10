@@ -117,11 +117,15 @@ async def q2(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def admin_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
     choice = update.message.text.lower()
+    logger.info(f"Admin menu choice: {choice}, user_id: {update.effective_user.id}")
     if choice == "назад":
         buttons = [["РУССКИЙ", "ENGLISH"]]
         if update.effective_user.id == ADMIN_ID:
             buttons[0].append("Настройки")
-        await update.message.reply_text("Выберите язык / Select language:", reply_markup=ReplyKeyboardMarkup(buttons, one_time_keyboard=True, resize_keyboard=True))
+        await update.message.reply_text(
+            "Выберите язык / Select language:",
+            reply_markup=ReplyKeyboardMarkup(buttons, one_time_keyboard=True, resize_keyboard=True)
+        )
         return LANG
     if choice in ["ru", "русский"]:
         context.user_data["edit_lang"] = "ru"
@@ -130,14 +134,17 @@ async def admin_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
     else:
         await update.message.reply_text("Пожалуйста, выберите язык кнопкой.")
         return ADMIN_MENU
+    buttons = [["greeting", "question_1", "question_2", "final"], ["Назад"]]
+    logger.info(f"Showing edit text menu for lang: {context.user_data.get('edit_lang')}, buttons: {buttons}")
     await update.message.reply_text(
         f"Выберите текст для редактирования ({context.user_data['edit_lang']}):",
-        reply_markup=ReplyKeyboardMarkup([["greeting", "question_1", "question_2", "final"], ["Назад"]], one_time_keyboard=True, resize_keyboard=True)
+        reply_markup=ReplyKeyboardMarkup(buttons, one_time_keyboard=True, resize_keyboard=True)
     )
     return EDIT_LANG
 
 async def edit_lang(update: Update, context: ContextTypes.DEFAULT_TYPE):
     choice = update.message.text.lower()
+    logger.info(f"Edit lang choice: {choice}, lang: {context.user_data.get('edit_lang')}")
     if choice == "назад":
         await update.message.reply_text(
             "Админка: Выберите язык для редактирования:",
