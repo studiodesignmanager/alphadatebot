@@ -1,163 +1,97 @@
-import logging
 import json
-from telegram import (
-    Update,
-    ReplyKeyboardMarkup,
-    ReplyKeyboardRemove,
-    KeyboardButton,
-)
-from telegram.ext import (
-    Application,
-    CommandHandler,
-    ContextTypes,
-    MessageHandler,
-    filters,
-    ConversationHandler,
-)
+from telegram import ReplyKeyboardMarkup, ReplyKeyboardRemove, Update
+from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes, ConversationHandler, MessageHandler, filters
 
-logging.basicConfig(
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO
-)
-logger = logging.getLogger(__name__)
+ADMIN_ID = 486225736
 
-ADMIN_ID = 486225736  # замените на свой admin ID
-BOT_TOKEN = "7110528714:AAG0mSUIkaEsbsJBL4FeCIq461HI2-xqx0g"  # Токен бота здесь, строкой
-
-# Состояния разговора
-LANGUAGE, Q1, Q2, FINAL = range(4)
-
+# Загрузка текстов
 with open("texts.json", "r", encoding="utf-8") as f:
     texts = json.load(f)
 
-def is_admin(user_id):
-    return user_id == ADMIN_ID
+LANG, Q1, Q2 = range(3)
 
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    user = update.message.from_user
-    logger.info("User %s started the conversation.", user.id)
-    # Клавиатура выбора языка
-    keyboard = [
-        [KeyboardButton("РУССКИЙ"), KeyboardButton("ENGLISH")]
-    ]
-    reply_markup = ReplyKeyboardMarkup(keyboard, one_time_keyboard=True, resize_keyboard=True)
-    await update.message.reply_text(
-        "Please select your language / Пожалуйста, выберите язык:",
-        reply_markup=reply_markup,
-    )
-    return LANGUAGE
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.effective_user.id
+    buttons = [["РУССКИЙ", "ENGLISH"]]
+    if user_id == ADMIN_ID:
+        buttons[0].append("Настройки")  # Добавляем кнопку настройки только админу
+    reply_markup = ReplyKeyboardMarkup(buttons, one_time_keyboard=True, resize_keyboard=True)
+    await update.message.reply_text("Выберите язык / Select language:", reply_markup=reply_markup)
+    return LANG
 
-async def language(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    user = update.message.from_user
-    lang_text = update.message.text.lower()
-    if lang_text.startswith("ру"):
-        context.user_data["lang"] = "ru"
-    elif lang_text.startswith("en"):
-        context.user_data["lang"] = "en"
+async def language(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.effective_user.id
+    lang_key = None
+    text = update.message.text
+    if text == "РУССКИЙ":
+        lang_key = "ru"
+    elif text == "ENGLISH":
+        lang_key = "en"
+    elif text == "Настройки" and user_id == ADMIN_ID:
+        await update.message.reply_text("Админка: Здесь можно редактировать тексты (реализация отдельно)")
+        return ConversationHandler.END
     else:
-        await update.message.reply_text("Please select a valid language.")
-        return LANGUAGE
+        await update.message.reply_text("Пожалуйста, выберите язык из клавиатуры.")
+        return LANG
 
-    lang = context.user_data["lang"]
-    # Отправляем первый вопрос
-    await update.message.reply_text(texts[lang]["question_1"], reply_markup=ReplyKeyboardRemove())
+    context.user_data['lang'] = lang_key
+    await update.message.reply_text(texts[lang_key]["question_1"], reply_markup=ReplyKeyboardRemove())
     return Q1
 
-async def q1(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    user = update.message.from_user
-    answer = update.message.text
-    context.user_data["answer_1"] = answer
+async def question1(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.effective_user.id
+    lang_key = context.user_data['lang']
+    answer1 = update.message.text
+    context.user_data['answer1'] = answer1
 
-    # Отправляем ответ админу сразу
-    await send_answer_to_admin(user, 1, answer, context)
+    # Отправляем ответ админу сразу с логином или ссылкой
+    username = update.effective_user.username
+    contact = f"@{username}" if username else f"https://t.me/{update.effective_user.id}"
+    admin_message = (f"Ответ 1 от пользователя {contact}:\n{answer1}")
+    await context.bot.send_message(chat_id=ADMIN_ID, text=admin_message)
 
-    lang = context.user_data["lang"]
-    await update.message.reply_text(texts[lang]["question_2"])
+    await update.message.reply_text(texts[lang_key]["question_2"])
     return Q2
 
-async def q2(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    user = update.message.from_user
-    answer = update.message.text
-    context.user_data["answer_2"] = answer
+async def question2(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.effective_user.id
+    lang_key = context.user_data['lang']
+    answer2 = update.message.text
+    context.user_data['answer2'] = answer2
 
-    # Отправляем ответ админу сразу
-    await send_answer_to_admin(user, 2, answer, context)
+    # Отправляем ответ админу сразу с логином или ссылкой
+    username = update.effective_user.username
+    contact = f"@{username}" if username else f"https://t.me/{update.effective_user.id}"
+    admin_message = (f"Ответ 2 от пользователя {contact}:\n{answer2}")
+    await context.bot.send_message(chat_id=ADMIN_ID, text=admin_message)
 
-    lang = context.user_data["lang"]
-    await update.message.reply_text(texts[lang]["final"])
-
-    # Отправляем финальное сообщение админу
-    await send_final_message_to_admin(user, context)
-
+    await update.message.reply_text(texts[lang_key]["final"])
     return ConversationHandler.END
 
-async def send_answer_to_admin(user, q_num, answer, context):
-    username = user.username
-    user_id = user.id
-    if username:
-        user_info = f"@{username}"
-    else:
-        user_info = f"https://t.me/user?id={user_id}"
-    msg = f"Ответ пользователя {user_info} на вопрос {q_num}:\n{answer}"
-    await context.bot.send_message(chat_id=ADMIN_ID, text=msg)
-
-async def send_final_message_to_admin(user, context):
-    username = user.username
-    user_id = user.id
-    if username:
-        user_info = f"@{username}"
-    else:
-        user_info = f"https://t.me/user?id={user_id}"
-    msg = f"Пользователь {user_info} завершил опрос."
-    await context.bot.send_message(chat_id=ADMIN_ID, text=msg)
-
-# Команда /settings только для админа
-async def settings(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user_id = update.message.from_user.id
-    if not is_admin(user_id):
-        await update.message.reply_text("Access denied.")
-        return
-    # Здесь админ может редактировать тексты, пример:
-    await update.message.reply_text("Здесь будет админка для редактирования текстов (пока заглушка).")
-
-# Добавим клавиатуру с кнопкой Настройки для админа
-async def send_welcome(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user_id = update.message.from_user.id
-    buttons = []
-    if is_admin(user_id):
-        buttons.append([KeyboardButton("Настройки")])
-    reply_markup = ReplyKeyboardMarkup(buttons, resize_keyboard=True) if buttons else None
-    await update.message.reply_text("Привет! Выберите действие:", reply_markup=reply_markup)
-
-async def on_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    text = update.message.text
-    user_id = update.message.from_user.id
-    # Обработка нажатия кнопки Настройки
-    if text == "Настройки" and is_admin(user_id):
-        await settings(update, context)
-        return
-    # Можно сюда добавить другие обработки кнопок
-    await update.message.reply_text("Команда не распознана. Используйте /start.")
+async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text("Отмена. До свидания!", reply_markup=ReplyKeyboardRemove())
+    return ConversationHandler.END
 
 def main():
-    application = Application.builder().token(BOT_TOKEN).build()
+    # Здесь впиши свой токен, который у тебя работал (НЕ ЗАМЕНЯЙ на переменные окружения)
+    BOT_TOKEN = "ВАШ_ТОКЕН_ЗДЕСЬ"
+
+    application = ApplicationBuilder().token(BOT_TOKEN).build()
 
     conv_handler = ConversationHandler(
-        entry_points=[CommandHandler("start", start)],
+        entry_points=[CommandHandler('start', start)],
         states={
-            LANGUAGE: [MessageHandler(filters.TEXT & ~filters.COMMAND, language)],
-            Q1: [MessageHandler(filters.TEXT & ~filters.COMMAND, q1)],
-            Q2: [MessageHandler(filters.TEXT & ~filters.COMMAND, q2)],
+            LANG: [MessageHandler(filters.TEXT & ~filters.COMMAND, language)],
+            Q1: [MessageHandler(filters.TEXT & ~filters.COMMAND, question1)],
+            Q2: [MessageHandler(filters.TEXT & ~filters.COMMAND, question2)],
         },
-        fallbacks=[CommandHandler("start", start)],
+        fallbacks=[CommandHandler('cancel', cancel)],
     )
 
     application.add_handler(conv_handler)
-
-    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, on_message))
-
     application.run_polling()
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     main()
 
 
