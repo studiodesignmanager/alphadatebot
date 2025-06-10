@@ -74,7 +74,7 @@ async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 def main():
     # Здесь впиши свой токен, который у тебя работал (НЕ ЗАМЕНЯЙ на переменные окружения)
-    BOT_TOKEN = "ВАШ_ТОКЕН_ЗДЕСЬ"
+    BOT_TOKEN = "7110528714:AAG0mSUIkaEsbsJBL4FeCIq461HI2-xqx0g"
 
     application = ApplicationBuilder().token(BOT_TOKEN).build()
 
