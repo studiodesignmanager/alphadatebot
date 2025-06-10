@@ -48,7 +48,10 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if user_id == ADMIN_ID:
         buttons[0].append("Настройки")
     reply_markup = ReplyKeyboardMarkup(buttons, one_time_keyboard=True, resize_keyboard=True)
-    await update.message.reply_text("Выберите язык / Select language:", reply_markup=reply_markup)
+    await update.message.reply_text(
+    f"{texts['ru']['greeting']}\n\n{texts['en']['greeting']}",
+    reply_markup=reply_markup
+)
     return LANG
 
 async def language(update: Update, context: ContextTypes.DEFAULT_TYPE):
