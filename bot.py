@@ -135,18 +135,21 @@ async def admin_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("Пожалуйста, выберите язык кнопкой.")
         return ADMIN_MENU
 
-    buttons = [["greeting", "question_1", "question_2", "final"], ["Назад"]]
+    buttons = [["Приветствие", "Вопрос 1", "Вопрос 2", "Финальное сообщение"], ["Назад"]]
+    logger.info(f"Showing edit text menu for lang: {context.user_data.get('edit_lang')}, buttons: {buttons}")
     await update.message.reply_text(
-        f"Выберите текст для редактирования ({context.user_data['edit_lang']}):\n"
-        f"- greeting = приветствие\n"
-        f"- question_1 = вопрос 1\n"
-        f"- question_2 = вопрос 2\n"
-        f"- final = финальное сообщение",
+        f"Выберите текст для редактирования ({context.user_data['edit_lang']}):",
         reply_markup=ReplyKeyboardMarkup(buttons, one_time_keyboard=True, resize_keyboard=True)
     )
     return EDIT_LANG
 
 async def edit_lang(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    mapping = {
+        "приветствие": "greeting",
+        "вопрос 1": "question_1",
+        "вопрос 2": "question_2",
+        "финальное сообщение": "final"
+    }
     choice = update.message.text.lower()
     logger.info(f"Edit lang choice: {choice}, lang: {context.user_data.get('edit_lang')}")
     if choice == "назад":
@@ -155,10 +158,10 @@ async def edit_lang(update: Update, context: ContextTypes.DEFAULT_TYPE):
             reply_markup=ReplyKeyboardMarkup([["RU", "EN"], ["Назад"]], one_time_keyboard=True, resize_keyboard=True)
         )
         return ADMIN_MENU
-    if choice not in ["greeting", "question_1", "question_2", "final"]:
-        await update.message.reply_text("Пожалуйста, выберите кнопку.")
+    if choice not in mapping:
+        await update.message.reply_text("Пожалуйста, выберите кнопку из меню.")
         return EDIT_LANG
-    context.user_data["edit_text_key"] = choice
+    context.user_data["edit_text_key"] = mapping[choice]
     await update.message.reply_text("Введите новый текст:")
     return EDIT_TEXT
 
