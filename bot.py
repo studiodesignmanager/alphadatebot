@@ -117,15 +117,10 @@ async def q2(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def admin_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
     choice = update.message.text.lower()
-    logger.info(f"Admin menu choice: {choice}, user_id: {update.effective_user.id}")
     if choice == "назад":
         buttons = [["РУССКИЙ", "ENGLISH"]]
-        if update.effective_user.id == ADMIN_ID:
-            buttons[0].append("Настройки")
-        await update.message.reply_text(
-            "Выберите язык / Select language:",
-            reply_markup=ReplyKeyboardMarkup(buttons, one_time_keyboard=True, resize_keyboard=True)
-        )
+        buttons[0].append("Настройки")
+        await update.message.reply_text("Выберите язык / Select language:", reply_markup=ReplyKeyboardMarkup(buttons, one_time_keyboard=True, resize_keyboard=True))
         return LANG
     if choice in ["ru", "русский"]:
         context.user_data["edit_lang"] = "ru"
@@ -134,9 +129,8 @@ async def admin_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
     else:
         await update.message.reply_text("Пожалуйста, выберите язык кнопкой.")
         return ADMIN_MENU
-    # Кнопка "greeting" добавлена
+
     buttons = [["greeting", "question_1", "question_2", "final"], ["Назад"]]
-    logger.info(f"Showing edit text menu for lang: {context.user_data.get('edit_lang')}, buttons: {buttons}")
     await update.message.reply_text(
         f"Выберите текст для редактирования ({context.user_data['edit_lang']}):",
         reply_markup=ReplyKeyboardMarkup(buttons, one_time_keyboard=True, resize_keyboard=True)
@@ -145,7 +139,6 @@ async def admin_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def edit_lang(update: Update, context: ContextTypes.DEFAULT_TYPE):
     choice = update.message.text.lower()
-    logger.info(f"Edit lang choice: {choice}, lang: {context.user_data.get('edit_lang')}")
     if choice == "назад":
         await update.message.reply_text(
             "Админка: Выберите язык для редактирования:",
@@ -178,29 +171,27 @@ async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 def main():
     logger.info("Starting bot...")
-    try:
-        application = ApplicationBuilder().token(BOT_TOKEN).build()
-        conv_handler = ConversationHandler(
-            entry_points=[CommandHandler("start", start)],
-            states={
-                LANG: [MessageHandler(filters.TEXT & ~filters.COMMAND, language)],
-                Q1: [MessageHandler(filters.TEXT & ~filters.COMMAND, q1)],
-                Q2: [MessageHandler(filters.TEXT & ~filters.COMMAND, q2)],
-                ADMIN_MENU: [MessageHandler(filters.TEXT & ~filters.COMMAND, admin_menu)],
-                EDIT_LANG: [MessageHandler(filters.TEXT & ~filters.COMMAND, edit_lang)],
-                EDIT_TEXT: [MessageHandler(filters.TEXT & ~filters.COMMAND, edit_text)],
-            },
-            fallbacks=[CommandHandler("cancel", cancel)],
-            allow_reentry=True,
-        )
-        application.add_handler(conv_handler)
-        logger.info("Bot handlers initialized, starting polling...")
-        application.run_polling()
-    except Exception as e:
-        logger.error(f"Error starting bot: {e}")
+    application = ApplicationBuilder().token(BOT_TOKEN).build()
+    conv_handler = ConversationHandler(
+        entry_points=[CommandHandler("start", start)],
+        states={
+            LANG: [MessageHandler(filters.TEXT & ~filters.COMMAND, language)],
+            Q1: [MessageHandler(filters.TEXT & ~filters.COMMAND, q1)],
+            Q2: [MessageHandler(filters.TEXT & ~filters.COMMAND, q2)],
+            ADMIN_MENU: [MessageHandler(filters.TEXT & ~filters.COMMAND, admin_menu)],
+            EDIT_LANG: [MessageHandler(filters.TEXT & ~filters.COMMAND, edit_lang)],
+            EDIT_TEXT: [MessageHandler(filters.TEXT & ~filters.COMMAND, edit_text)],
+        },
+        fallbacks=[CommandHandler("cancel", cancel)],
+        allow_reentry=True,
+    )
+    application.add_handler(conv_handler)
+    logger.info("Bot handlers initialized, starting polling...")
+    application.run_polling()
 
 if __name__ == "__main__":
     main()
+
 
 
 
