@@ -12,12 +12,11 @@ from telegram.ext import (
     CommandHandler,
     ContextTypes,
     ConversationHandler,
-    MessageHandler,
     CallbackQueryHandler,
+    MessageHandler,
     filters,
 )
 
-# Настройка логирования
 logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO
 )
@@ -34,12 +33,8 @@ def load_texts():
             data = json.load(f)
             logger.info("Successfully loaded texts.json")
             return data
-    except FileNotFoundError:
-        logger.error("texts.json not found, using default texts")
-    except json.JSONDecodeError as e:
-        logger.error(f"Invalid JSON in texts.json: {e}, using default texts")
     except Exception as e:
-        logger.error(f"Unexpected error loading texts.json: {e}, using default texts")
+        logger.error(f"Error loading texts.json: {e}")
     return {
         "ru": {
             "greeting": "Добрый день! Ответьте, пожалуйста, на несколько вопросов.",
@@ -66,19 +61,24 @@ texts = load_texts()
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
-    buttons = [
-        [InlineKeyboardButton("РУССКИЙ", callback_data="lang_ru"), InlineKeyboardButton("ENGLISH", callback_data="lang_en")]
+
+    keyboard = [
+        [
+            InlineKeyboardButton("РУССКИЙ", callback_data="lang_ru"),
+            InlineKeyboardButton("ENGLISH", callback_data="lang_en")
+        ]
     ]
     if user_id == ADMIN_ID:
-        buttons.append([InlineKeyboardButton("Настройки", callback_data="admin_settings")])
-    reply_markup = InlineKeyboardMarkup(buttons)
+        keyboard[0].append(InlineKeyboardButton("Настройки", callback_data="admin_menu"))
+
+    reply_markup = InlineKeyboardMarkup(keyboard)
     await update.message.reply_text(
         f"{texts['ru']['greeting']}\n\n{texts['en']['greeting']}",
         reply_markup=reply_markup
     )
     return LANG
 
-async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def handle_inline_buttons(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
     data = query.data
@@ -86,21 +86,27 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if data == "lang_ru":
         context.user_data["lang"] = "ru"
-        await query.edit_message_text(texts["ru"]["question_1"])
+        await query.message.edit_reply_markup(reply_markup=None)
+        await query.message.reply_text(texts["ru"]["question_1"], reply_markup=ReplyKeyboardRemove())
         return Q1
+
     elif data == "lang_en":
         context.user_data["lang"] = "en"
-        await query.edit_message_text(texts["en"]["question_1"])
+        await query.message.edit_reply_markup(reply_markup=None)
+        await query.message.reply_text(texts["en"]["question_1"], reply_markup=ReplyKeyboardRemove())
         return Q1
-    elif data == "admin_settings" and user_id == ADMIN_ID:
-        await query.edit_message_text(
+
+    elif data == "admin_menu" and user_id == ADMIN_ID:
+        buttons = [["RU", "EN"], ["Назад"]]
+        await query.message.edit_reply_markup(reply_markup=None)
+        await query.message.reply_text(
             "Админка: Выберите язык для редактирования:",
-            reply_markup=ReplyKeyboardMarkup([["RU", "EN"], ["Назад"]], one_time_keyboard=True, resize_keyboard=True)
+            reply_markup=ReplyKeyboardMarkup(buttons, one_time_keyboard=True, resize_keyboard=True)
         )
         return ADMIN_MENU
-    else:
-        await query.edit_message_text("Пожалуйста, выберите язык кнопкой.")
-        return LANG
+
+    await query.message.reply_text("Неверный выбор.")
+    return LANG
 
 async def language(update: Update, context: ContextTypes.DEFAULT_TYPE):
     choice = update.message.text.lower()
@@ -146,7 +152,6 @@ async def q2(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def admin_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
     choice = update.message.text.lower()
-    logger.info(f"Admin menu choice: {choice}, user_id: {update.effective_user.id}")
     if choice == "назад":
         buttons = [["РУССКИЙ", "ENGLISH"]]
         if update.effective_user.id == ADMIN_ID:
@@ -164,7 +169,6 @@ async def admin_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("Пожалуйста, выберите язык кнопкой.")
         return ADMIN_MENU
     buttons = [["greeting", "question_1", "question_2", "final"], ["Назад"]]
-    logger.info(f"Showing edit text menu for lang: {context.user_data.get('edit_lang')}, buttons: {buttons}")
     await update.message.reply_text(
         f"Выберите текст для редактирования ({context.user_data['edit_lang']}):",
         reply_markup=ReplyKeyboardMarkup(buttons, one_time_keyboard=True, resize_keyboard=True)
@@ -173,7 +177,6 @@ async def admin_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def edit_lang(update: Update, context: ContextTypes.DEFAULT_TYPE):
     choice = update.message.text.lower()
-    logger.info(f"Edit lang choice: {choice}, lang: {context.user_data.get('edit_lang')}")
     if choice == "назад":
         await update.message.reply_text(
             "Админка: Выберите язык для редактирования:",
@@ -211,7 +214,7 @@ def main():
         conv_handler = ConversationHandler(
             entry_points=[CommandHandler("start", start)],
             states={
-                LANG: [MessageHandler(filters.TEXT & ~filters.COMMAND, language)],
+                LANG: [MessageHandler(filters.TEXT & ~filters.COMMAND, language), CallbackQueryHandler(handle_inline_buttons)],
                 Q1: [MessageHandler(filters.TEXT & ~filters.COMMAND, q1)],
                 Q2: [MessageHandler(filters.TEXT & ~filters.COMMAND, q2)],
                 ADMIN_MENU: [MessageHandler(filters.TEXT & ~filters.COMMAND, admin_menu)],
@@ -222,14 +225,14 @@ def main():
             allow_reentry=True,
         )
         application.add_handler(conv_handler)
-        application.add_handler(CallbackQueryHandler(button_handler))
-        logger.info("Bot handlers initialized, starting polling...")
+        application.add_handler(CallbackQueryHandler(handle_inline_buttons))
         application.run_polling()
     except Exception as e:
         logger.error(f"Error starting bot: {e}")
 
 if __name__ == "__main__":
     main()
+
 
 
 
