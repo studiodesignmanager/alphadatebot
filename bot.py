@@ -3,6 +3,8 @@ import logging
 from telegram import (
     ReplyKeyboardMarkup,
     ReplyKeyboardRemove,
+    InlineKeyboardMarkup,
+    InlineKeyboardButton,
     Update,
 )
 from telegram.ext import (
@@ -11,6 +13,7 @@ from telegram.ext import (
     ContextTypes,
     ConversationHandler,
     MessageHandler,
+    CallbackQueryHandler,
     filters,
 )
 
@@ -63,15 +66,41 @@ texts = load_texts()
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
-    buttons = [["РУССКИЙ", "ENGLISH"]]
+    buttons = [
+        [InlineKeyboardButton("РУССКИЙ", callback_data="lang_ru"), InlineKeyboardButton("ENGLISH", callback_data="lang_en")]
+    ]
     if user_id == ADMIN_ID:
-        buttons[0].append("Настройки")
-    reply_markup = ReplyKeyboardMarkup(buttons, one_time_keyboard=True, resize_keyboard=True)
+        buttons.append([InlineKeyboardButton("Настройки", callback_data="admin_settings")])
+    reply_markup = InlineKeyboardMarkup(buttons)
     await update.message.reply_text(
         f"{texts['ru']['greeting']}\n\n{texts['en']['greeting']}",
         reply_markup=reply_markup
     )
     return LANG
+
+async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    data = query.data
+    user_id = query.from_user.id
+
+    if data == "lang_ru":
+        context.user_data["lang"] = "ru"
+        await query.edit_message_text(texts["ru"]["question_1"])
+        return Q1
+    elif data == "lang_en":
+        context.user_data["lang"] = "en"
+        await query.edit_message_text(texts["en"]["question_1"])
+        return Q1
+    elif data == "admin_settings" and user_id == ADMIN_ID:
+        await query.edit_message_text(
+            "Админка: Выберите язык для редактирования:",
+            reply_markup=ReplyKeyboardMarkup([["RU", "EN"], ["Назад"]], one_time_keyboard=True, resize_keyboard=True)
+        )
+        return ADMIN_MENU
+    else:
+        await query.edit_message_text("Пожалуйста, выберите язык кнопкой.")
+        return LANG
 
 async def language(update: Update, context: ContextTypes.DEFAULT_TYPE):
     choice = update.message.text.lower()
@@ -193,6 +222,7 @@ def main():
             allow_reentry=True,
         )
         application.add_handler(conv_handler)
+        application.add_handler(CallbackQueryHandler(button_handler))
         logger.info("Bot handlers initialized, starting polling...")
         application.run_polling()
     except Exception as e:
@@ -200,6 +230,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
 
