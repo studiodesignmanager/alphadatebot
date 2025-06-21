@@ -38,19 +38,21 @@ def load_texts():
     except json.JSONDecodeError as e:
         logger.error(f"Invalid JSON in texts.json: {e}, using default texts")
     except Exception as e:
-        logger.error(f"Unexpected error loading texts.json: {e}, using default texts")
+        logger.error(f"Unexpected error loading texts.json: {e}", exc_info=True)
     return {
         "ru": {
-            "greeting": "Добрый день! Ответьте, пожалуйста, на несколько вопросов.",
+            "greeting": "Добрый день! Ответьте, пожалуйста, на несколько вопросов.\n\nЭто поможет нам лучше узнать цель вашего обращения и помочь вам.",
             "question_1": "У вас были регистрации на международных сайтах знакомствах ранее?",
             "question_2": "С какой целью интересует регистрация?",
-            "final": "Спасибо! Мы свяжемся с вами в ближайшее время"
+            "final": "Спасибо! Мы свяжемся с вами в ближайшее время",
+            "contact_prompt": "Если у вас есть дополнительные вопросы, нажмите кнопку ниже:"
         },
         "en": {
-            "greeting": "Good afternoon! Please answer a few questions.",
+            "greeting": "Good afternoon! Please answer a few questions.\n\nThis will help us better understand your purpose for contacting us and assist you.",
             "question_1": "Have you registered on any international dating sites before?",
             "question_2": "What is your reason for signing up?",
-            "final": "Thank you! We will get in touch with you shortly."
+            "final": "Thank you! We will get in touch with you shortly.",
+            "contact_prompt": "If you have additional questions, click the button below:"
         }
     }
 
@@ -59,7 +61,7 @@ def save_texts(texts):
         with open("texts.json", "w", encoding="utf-8") as f:
             json.dump(texts, f, ensure_ascii=False, indent=2)
     except Exception as e:
-        logger.error(f"Error saving texts.json: {e}")
+        logger.error(f"Error saving texts.json: {e}", exc_info=True)
 
 texts = load_texts()
 
@@ -104,14 +106,10 @@ async def q2(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     await update.message.reply_text(texts[lang]["final"])
 
-    if lang == "ru":
-        btn_text = "📩 НАПИСАТЬ НАМ"
-        btn_label = "Если у вас есть дополнительные вопросы, нажмите кнопку ниже:"
-    else:
-        btn_text = "📩 CONTACT US"
-        btn_label = "If you have additional questions, click the button below:"
+    btn_text = "📩 НАПИСАТЬ НАМ" if lang == "ru" else "📩 CONTACT US"
+    btn_label = texts[lang].get("contact_prompt", "If you have additional questions, click the button below:")
 
-    keyboard = [[InlineKeyboardButton(btn_text, url="https://t.me/ВАШ_ЮЗЕРНЕЙМ")]]
+    keyboard = [[InlineKeyboardButton(btn_text, url="https://t.me/alphadate")]]
     reply_markup = InlineKeyboardMarkup(keyboard)
     await update.message.reply_text(btn_label, reply_markup=reply_markup)
 
@@ -128,7 +126,7 @@ async def q2(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         await context.bot.send_message(ADMIN_ID, admin_msg)
     except Exception as e:
-        logger.error(f"Error sending message to admin: {e}")
+        logger.error(f"Error sending message to admin: {e}", exc_info=True)
     return ConversationHandler.END
 
 async def admin_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -146,7 +144,7 @@ async def admin_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("Пожалуйста, выберите язык кнопкой.")
         return ADMIN_MENU
 
-    buttons = [["greeting", "question_1", "question_2", "final"], ["Назад"]]
+    buttons = [["greeting", "question_1", "question_2", "final", "contact_prompt"], ["Назад"]]
     await update.message.reply_text(
         f"Выберите текст для редактирования ({context.user_data['edit_lang']}):",
         reply_markup=ReplyKeyboardMarkup(buttons, one_time_keyboard=True, resize_keyboard=True)
@@ -161,7 +159,7 @@ async def edit_lang(update: Update, context: ContextTypes.DEFAULT_TYPE):
             reply_markup=ReplyKeyboardMarkup([["RU", "EN"], ["Назад"]], one_time_keyboard=True, resize_keyboard=True)
         )
         return ADMIN_MENU
-    if choice not in ["greeting", "question_1", "question_2", "final"]:
+    if choice not in ["greeting", "question_1", "question_2", "final", "contact_prompt"]:
         await update.message.reply_text("Пожалуйста, выберите кнопку.")
         return EDIT_LANG
     context.user_data["edit_text_key"] = choice
@@ -207,6 +205,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
 
