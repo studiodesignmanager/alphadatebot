@@ -3,13 +3,16 @@
     "greeting": "Добрый день! Ответьте, пожалуйста, на несколько вопросов.\n\nЭто поможет нам лучше узнать цель вашего обращения и помочь вам.",
     "question_1": "У вас были регистрации на международных сайтах знакомствах ранее?",
     "question_2": "С какой целью интересует регистрация?",
-    "final": "Спасибо! Мы свяжемся с вами в ближайшее время"
+    "final": "Спасибо! Мы свяжемся с вами в ближайшее время",
+    "contact_prompt": "Если у вас есть дополнительные вопросы, нажмите кнопку ниже:"
   },
   "en": {
     "greeting": "Good afternoon! Please answer a few questions.\n\nThis will help us better understand your purpose for contacting us and assist you.",
     "question_1": "Have you registered on any international dating sites before?",
     "question_2": "What is your reason for signing up?",
-    "final": "Thank you! We will get in touch with you shortly."
+    "final": "Thank you! We will get in touch with you shortly.",
+    "contact_prompt": "If you have additional questions, click the button below:"
   }
 }
+
 
