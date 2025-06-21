@@ -3,6 +3,8 @@ import logging
 from telegram import (
     ReplyKeyboardMarkup,
     ReplyKeyboardRemove,
+    InlineKeyboardButton,
+    InlineKeyboardMarkup,
     Update,
 )
 from telegram.ext import (
@@ -98,13 +100,27 @@ async def q1(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def q2(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data["q2"] = update.message.text
-    await update.message.reply_text(texts[context.user_data["lang"]]["final"])
+    lang = context.user_data["lang"]
+    
+    await update.message.reply_text(texts[lang]["final"])
+
+    if lang == "ru":
+        btn_text = "📩 НАПИСАТЬ НАМ"
+        btn_label = "Если у вас есть дополнительные вопросы, нажмите кнопку ниже:"
+    else:
+        btn_text = "📩 CONTACT US"
+        btn_label = "If you have additional questions, click the button below:"
+
+    keyboard = [[InlineKeyboardButton(btn_text, url="https://t.me/ВАШ_ЮЗЕРНЕЙМ")]]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    await update.message.reply_text(btn_label, reply_markup=reply_markup)
+
     username = update.effective_user.username
     user_id = update.effective_user.id
     link = f"https://t.me/{username}" if username else f"tg://user?id={user_id}"
     admin_msg = (
         f"Ответы пользователя @{username if username else '[нет username]'} (id: {user_id}):\n"
-        f"Язык: {context.user_data['lang']}\n"
+        f"Язык: {lang}\n"
         f"Вопрос 1: {context.user_data['q1']}\n"
         f"Вопрос 2: {context.user_data['q2']}\n"
         f"Ссылка: {link}"
@@ -191,6 +207,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
 
