@@ -1,25 +1,33 @@
 {
   "ru": {
     "greeting": "Добрый день! Ответьте, пожалуйста, на несколько вопросов.\n\nЭто поможет нам лучше узнать цель вашего обращения и помочь вам.",
-    "gender": "Укажите ваш пол:",
-    "age": "Укажите, пожалуйста, ваш возраст:",
-    "country": "Укажите вашу страну проживания:",
+    "gender_question": "Выберите ваш пол:",
+    "gender_male": "Мужской",
+    "gender_female": "Женский",
+    "age_question": "Пожалуйста, укажите ваш возраст:",
+    "country_question": "Пожалуйста, укажите вашу страну проживания:",
     "question_1": "У вас были регистрации на международных сайтах знакомств ранее?",
     "question_2": "С какой целью интересует регистрация?",
     "final": "Спасибо! Мы свяжемся с вами в ближайшее время",
-    "contact_btn": "📩 НАПИСАТЬ НАМ"
+    "contact_prompt": "Если у вас есть дополнительные вопросы, нажмите кнопку ниже:",
+    "contact_button": "📩 НАПИСАТЬ НАМ"
   },
   "en": {
     "greeting": "Good afternoon! Please answer a few questions.\n\nThis will help us better understand your purpose for contacting us and assist you.",
-    "gender": "Select your gender:",
-    "age": "Please enter your age:",
-    "country": "Please enter your country of residence:",
+    "gender_question": "Select your gender:",
+    "gender_male": "Male",
+    "gender_female": "Female",
+    "age_question": "Please enter your age:",
+    "country_question": "Please enter your country of residence:",
     "question_1": "Have you registered on any international dating sites before?",
     "question_2": "What is your reason for signing up?",
     "final": "Thank you! We will get in touch with you shortly.",
-    "contact_btn": "📩 CONTACT US"
+    "contact_prompt": "If you have additional questions, click the button below:",
+    "contact_button": "📩 CONTACT US"
   }
 }
+
+
 
 
 
