@@ -33,12 +33,17 @@ LANGUAGE, Q1, Q2, FINAL = range(4)
 
 # --- START ---
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    # Кнопки выбора языка
     keyboard = [["РУССКИЙ", "ENGLISH"]]
     markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True, one_time_keyboard=True)
-    await update.message.reply_text(
-        "Пожалуйста, выберите язык / Please select a language:",
-        reply_markup=markup
+
+    # Первое сообщение сразу на двух языках
+    greeting = (
+        "Привет! Добрый день! Ответьте, пожалуйста, на несколько вопросов.\n\n"
+        "Hello! Good afternoon! Please answer a few questions."
     )
+
+    await update.message.reply_text(greeting, reply_markup=markup)
     return LANGUAGE
 
 # --- LANGUAGE SELECT ---
@@ -55,10 +60,8 @@ async def language(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return LANGUAGE
 
     lang = context.user_data["lang"]
-    await update.message.reply_text(
-        texts[lang]["greeting"], reply_markup=ReplyKeyboardRemove()
-    )
-    await update.message.reply_text(texts[lang]["question1"])
+    # Следующий вопрос на выбранном языке
+    await update.message.reply_text(texts[lang]["question1"], reply_markup=ReplyKeyboardRemove())
     return Q1
 
 # --- FIRST QUESTION ---
@@ -115,6 +118,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
 
