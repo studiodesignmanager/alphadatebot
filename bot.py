@@ -23,6 +23,7 @@ LANG, GENDER, AGE, COUNTRY, INTERNATIONAL, PURPOSE, FINISH = range(7)
 # ================== ОБРАБОТЧИКИ ==================
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    context.user_data.clear()  # <- сброс данных перед новым опросом
     greeting = (
         "👋 Добрый день! Пожалуйста, ответьте на несколько вопросов.\n\n"
         "✍️ Это поможет нам лучше понять вашу цель обращения и быстрее вам помочь.\n\n"
@@ -119,11 +120,9 @@ async def purpose(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     final_text = (
         "Спасибо за ответы! ❤️\n\n"
         "Нажмите кнопку ниже и отправьте нам сообщение, чтобы мы могли связаться с вами"
-        if lang == "РУССКИЙ"
-        else "Thank you for your answers! ❤️\n\nClick the button below and send us a message so we can contact you"
     )
     await update.message.reply_text(
-        final_text,
+        final_text, 
         reply_markup=ReplyKeyboardMarkup(final_keyboard, one_time_keyboard=True, resize_keyboard=True)
     )
     return FINISH
@@ -132,10 +131,12 @@ async def finish(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     # Пользователь нажал кнопку НАПИСАТЬ НАМ
     chat_url = "https://t.me/alphadate"
     await update.message.reply_text(f"Свяжитесь с нами здесь: {chat_url}")
+    context.user_data.clear()  # <- очищаем данные пользователя после финала
     return ConversationHandler.END
 
 async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     await update.message.reply_text("Опрос отменен.")
+    context.user_data.clear()
     return ConversationHandler.END
 
 # ================== MAIN ==================
@@ -162,6 +163,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
 
