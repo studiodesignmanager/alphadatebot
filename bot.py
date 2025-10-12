@@ -1,6 +1,4 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-
+import logging
 from telegram import Update, ReplyKeyboardMarkup, KeyboardButton
 from telegram.ext import (
     ApplicationBuilder,
@@ -9,140 +7,121 @@ from telegram.ext import (
     ConversationHandler,
     MessageHandler,
     filters,
-    CallbackContext,
 )
-import logging
-import json
 
-# Логирование
 logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
     level=logging.INFO
 )
 logger = logging.getLogger(__name__)
 
-# Токен
 BOT_TOKEN = "7110528714:AAFP6YGssZkEw55Jda1CYY1aR802XGoBOhg"
 ADMIN_ID = 486225736
 
-# Состояния ConversationHandler
 LANG, GENDER, AGE, COUNTRY, INTERNATIONAL, PURPOSE, FINISH = range(7)
 
-# Приветствие
-def start(update: Update, context: CallbackContext) -> int:
+# ================== ОБРАБОТЧИКИ ==================
+
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     greeting = (
         "👋 Добрый день! Пожалуйста, ответьте на несколько вопросов.\n\n"
         "✍️ Это поможет нам лучше понять вашу цель обращения и быстрее вам помочь.\n\n"
         "👋 Good afternoon! Please answer a few questions.\n\n"
         "✍️ This will help us better understand why you are contacting us and assist you more efficiently."
     )
-
-    keyboard = [
-        [KeyboardButton("РУССКИЙ"), KeyboardButton("ENGLISH")]
-    ]
+    keyboard = [[KeyboardButton("РУССКИЙ"), KeyboardButton("ENGLISH")]]
     reply_markup = ReplyKeyboardMarkup(keyboard, one_time_keyboard=True, resize_keyboard=True)
-    update.message.reply_text(greeting, reply_markup=reply_markup)
+    await update.message.reply_text(greeting, reply_markup=reply_markup)
     return LANG
 
-# Выбор языка
-def choose_language(update: Update, context: CallbackContext) -> int:
+async def choose_language(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     lang = update.message.text
     context.user_data['lang'] = lang
     if lang == "РУССКИЙ":
         keyboard = [[KeyboardButton("Мужчина"), KeyboardButton("Женщина")]]
-        update.message.reply_text("Пожалуйста, выберите ваш пол:", reply_markup=ReplyKeyboardMarkup(keyboard, one_time_keyboard=True, resize_keyboard=True))
+        await update.message.reply_text("Пожалуйста, выберите ваш пол:", reply_markup=ReplyKeyboardMarkup(keyboard, one_time_keyboard=True, resize_keyboard=True))
     else:
         keyboard = [[KeyboardButton("Man"), KeyboardButton("Woman")]]
-        update.message.reply_text("Please select your gender:", reply_markup=ReplyKeyboardMarkup(keyboard, one_time_keyboard=True, resize_keyboard=True))
+        await update.message.reply_text("Please select your gender:", reply_markup=ReplyKeyboardMarkup(keyboard, one_time_keyboard=True, resize_keyboard=True))
     return GENDER
 
-# Выбор пола
-def choose_gender(update: Update, context: CallbackContext) -> int:
+async def choose_gender(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     context.user_data['gender'] = update.message.text
-    lang = context.user_data.get('lang', 'РУССКИЙ')
+    lang = context.user_data['lang']
     if lang == "РУССКИЙ":
-        update.message.reply_text("Сколько вам полных лет?")
+        await update.message.reply_text("Сколько вам полных лет?")
     else:
-        update.message.reply_text("How old are you?")
+        await update.message.reply_text("How old are you?")
     return AGE
 
-# Ввод возраста
-def age(update: Update, context: CallbackContext) -> int:
+async def age(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     context.user_data['age'] = update.message.text
-    lang = context.user_data.get('lang', 'РУССКИЙ')
+    lang = context.user_data['lang']
     if lang == "РУССКИЙ":
-        update.message.reply_text("В какой стране вы проживаете постоянно?")
+        await update.message.reply_text("Пожалуйста, укажите вашу страну проживания")
     else:
-        update.message.reply_text("In which country do you permanently reside?")
+        await update.message.reply_text("Please indicate your country of residence")
     return COUNTRY
 
-# Ввод страны
-def country(update: Update, context: CallbackContext) -> int:
+async def country(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     context.user_data['country'] = update.message.text
-    lang = context.user_data.get('lang', 'РУССКИЙ')
+    lang = context.user_data['lang']
     if lang == "РУССКИЙ":
         keyboard = [[KeyboardButton("Да"), KeyboardButton("Нет")]]
-        update.message.reply_text(
-            "У вас были регистрации на международных сайтах знакомств ранее?",
-            reply_markup=ReplyKeyboardMarkup(keyboard, one_time_keyboard=True, resize_keyboard=True)
-        )
+        await update.message.reply_text("У вас были регистрации на международных сайтах знакомств ранее?", reply_markup=ReplyKeyboardMarkup(keyboard, one_time_keyboard=True, resize_keyboard=True))
     else:
         keyboard = [[KeyboardButton("Yes"), KeyboardButton("No")]]
-        update.message.reply_text(
-            "Have you registered on international dating sites before?",
-            reply_markup=ReplyKeyboardMarkup(keyboard, one_time_keyboard=True, resize_keyboard=True)
-        )
+        await update.message.reply_text("Have you registered on international dating sites before?", reply_markup=ReplyKeyboardMarkup(keyboard, one_time_keyboard=True, resize_keyboard=True))
     return INTERNATIONAL
 
-# Международные сайты
-def international(update: Update, context: CallbackContext) -> int:
+async def international(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     context.user_data['international'] = update.message.text
-    lang = context.user_data.get('lang', 'РУССКИЙ')
+    lang = context.user_data['lang']
     if lang == "РУССКИЙ":
-        update.message.reply_text("С какой целью интересует регистрация?")
+        await update.message.reply_text("С какой целью интересует регистрация?")
     else:
-        update.message.reply_text("What is your purpose for registering?")
+        await update.message.reply_text("What is your purpose for registering?")
     return PURPOSE
 
-# Цель регистрации
-def purpose(update: Update, context: CallbackContext) -> int:
+async def purpose(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     context.user_data['purpose'] = update.message.text
 
-    user_data = context.user_data
-    username = update.message.from_user.username or ""
-    first_name = update.message.from_user.first_name or ""
-    lang = user_data.get('lang', 'РУССКИЙ')
+    user = update.message.from_user
+    lang = context.user_data['lang']
 
-    msg = (
-        f"Username: @{username}\n"
-        f"Имя: {first_name}\n"
+    # Отправляем админу
+    text = (
+        f"Username: @{user.username if user.username else '-'}\n"
+        f"Имя: {user.first_name}\n"
         f"Язык: {lang}\n"
-        f"Пол: {user_data.get('gender', '')}\n"
-        f"Возраст: {user_data.get('age', '')}\n"
-        f"Страна: {user_data.get('country', '')}\n"
-        f"Был(а) на международных сайтах: {user_data.get('international', '')}\n"
-        f"Цель регистрации: {user_data.get('purpose', '')}"
+        f"Пол: {context.user_data['gender']}\n"
+        f"Возраст: {context.user_data['age']}\n"
+        f"Страна: {context.user_data['country']}\n"
+        f"Был(а) на международных сайтах: {context.user_data['international']}\n"
+        f"Цель регистрации: {context.user_data['purpose']}"
     )
+    await context.bot.send_message(chat_id=ADMIN_ID, text=text)
 
-    context.bot.send_message(chat_id=ADMIN_ID, text=msg)
-
-    final_msg = (
+    # Финальное сообщение пользователю
+    final_keyboard = [[KeyboardButton("📩 НАПИСАТЬ НАМ")]]
+    final_text = (
         "Спасибо за ответы! ❤️\n\n"
-        "Нажмите кнопку ниже и отправьте нам сообщение, чтобы мы могли связаться с вами."
+        "Нажмите кнопку ниже и отправьте нам сообщение, чтобы мы могли связаться с вами"
     )
-    keyboard = [[KeyboardButton("📩 НАПИСАТЬ НАМ")]]
-    update.message.reply_text(final_msg, reply_markup=ReplyKeyboardMarkup(keyboard, one_time_keyboard=True, resize_keyboard=True))
+    await update.message.reply_text(final_text, reply_markup=ReplyKeyboardMarkup(final_keyboard, one_time_keyboard=True, resize_keyboard=True))
     return FINISH
 
-# Конец
-def finish(update: Update, context: CallbackContext) -> int:
-    update.message.reply_text("Мы получили ваше сообщение и свяжемся с вами в ближайшее время!")
+async def finish(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    # Пользователь нажал кнопку НАПИСАТЬ НАМ
+    chat_url = "https://t.me/alphadate"
+    await update.message.reply_text(f"Свяжитесь с нами здесь: {chat_url}")
     return ConversationHandler.END
 
-# Команда /cancel
-def cancel(update: Update, context: CallbackContext) -> int:
-    update.message.reply_text("Опрос отменён.")
+async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    await update.message.reply_text("Опрос отменен.")
     return ConversationHandler.END
+
+# ================== MAIN ==================
 
 def main():
     app = ApplicationBuilder().token(BOT_TOKEN).build()
@@ -166,6 +145,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
 
