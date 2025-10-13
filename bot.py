@@ -12,25 +12,21 @@ from telegram.ext import (
     filters,
     ContextTypes,
 )
-import pytz
 
 # 🔹 Включаем логирование
 logging.basicConfig(level=logging.INFO)
 
 # 🔹 Константы состояний
-LANGUAGE, GENDER, AGE, COUNTRY, INTERNATIONAL, PURPOSE, FINAL = range(7)
+LANGUAGE, GENDER, AGE, COUNTRY, INTERNATIONAL, PURPOSE = range(6)
 
-# 🔹 Твой токен
+# 🔹 Токен и админ ID
 TOKEN = "7110528714:AAFP6YGssZkEw55Jda1CYY1aR802XGoBOhg"
-
-# 🔹 ID админа
 ADMIN_ID = 486225736
 
 
 # 🔹 /start
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user_id = update.effective_user.id
-    context.user_data.clear()  # позволяет заново проходить анкету
+    context.user_data.clear()  # позволяет проходить заново
     keyboard = [["РУССКИЙ", "ENGLISH"]]
 
     await update.message.reply_text(
@@ -47,14 +43,16 @@ async def language(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if lang == "РУССКИЙ":
         text = (
-            "👋 Добрый день! Ответьте, пожалуйста, на несколько вопросов.\n\n"
-            "Это поможет нам лучше узнать цель вашего обращения и помочь вам быстрее."
+            "👋 Добрый день!\n\n"
+            "💬 Это поможет нам лучше узнать цель вашего обращения и помочь вам быстрее.\n\n"
+            "Выберите, пожалуйста, свой пол:"
         )
         keyboard = [["Мужчина", "Женщина"]]
     else:
         text = (
-            "👋 Good afternoon! Please answer a few questions.\n\n"
-            "This will help us better understand your purpose for contacting us and assist you."
+            "👋 Good afternoon!\n\n"
+            "💬 This will help us better understand your purpose for contacting us and assist you faster.\n\n"
+            "Please select your gender:"
         )
         keyboard = [["Man", "Woman"]]
 
@@ -117,14 +115,14 @@ async def international(update: Update, context: ContextTypes.DEFAULT_TYPE):
     return PURPOSE
 
 
-# 🔹 Цель регистрации
+# 🔹 Цель регистрации + финал
 async def purpose(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data["purpose"] = update.message.text
     lang = context.user_data["lang"]
-
     user = update.effective_user
     data = context.user_data
 
+    # 🔸 Отправка админу
     msg_admin = (
         f"📩 Новый ответ от @{user.username or 'без username'} (ID: {user.id})\n\n"
         f"Пол: {data.get('gender')}\n"
@@ -133,14 +131,20 @@ async def purpose(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"Регистрация ранее: {data.get('international')}\n"
         f"Цель: {data.get('purpose')}"
     )
-
     await context.bot.send_message(chat_id=ADMIN_ID, text=msg_admin)
 
+    # 🔸 Финальное сообщение
     if lang == "ru":
-        text = "Спасибо за ваши ответы! ❤️\n\nНажмите кнопку ниже, чтобы написать нам прямо сейчас:"
+        text = (
+            "❤️ Спасибо за ваши ответы!\n\n"
+            "Нажмите кнопку ниже, чтобы написать нам прямо сейчас 👇"
+        )
         keyboard = [[KeyboardButton("📩 НАПИСАТЬ НАМ", url="https://t.me/alphadate")]]
     else:
-        text = "Thank you for your answers! ❤️\n\nClick the button below to contact us directly:"
+        text = (
+            "❤️ Thank you for your answers!\n\n"
+            "Click the button below to contact us directly 👇"
+        )
         keyboard = [[KeyboardButton("📩 CONTACT US", url="https://t.me/alphadate")]]
 
     await update.message.reply_text(
@@ -149,7 +153,7 @@ async def purpose(update: Update, context: ContextTypes.DEFAULT_TYPE):
     return ConversationHandler.END
 
 
-# 🔹 Команда /cancel
+# 🔹 Отмена
 async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("Диалог завершён. Чтобы начать заново, введите /start")
     return ConversationHandler.END
@@ -157,10 +161,6 @@ async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 # 🔹 Основной запуск
 def main():
-    import asyncio
-    from apscheduler.schedulers.asyncio import AsyncIOScheduler
-    from pytz import timezone
-
     app = ApplicationBuilder().token(TOKEN).build()
 
     conv = ConversationHandler(
