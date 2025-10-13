@@ -8,7 +8,7 @@ from telegram.ext import (
     MessageHandler,
     filters,
 )
-from pytz import timezone
+import pytz
 
 logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
@@ -20,7 +20,6 @@ BOT_TOKEN = "7110528714:AAFP6YGssZkEw55Jda1CYY1aR802XGoBOhg"
 ADMIN_ID = 486225736
 
 LANG, GENDER, AGE, COUNTRY, INTERNATIONAL, PURPOSE, FINISH = range(7)
-MOSCOW_TZ = timezone("Europe/Moscow")
 
 # ================== ОБРАБОТЧИКИ ==================
 
@@ -87,7 +86,6 @@ async def international(update: Update, context: ContextTypes.DEFAULT_TYPE) -> i
 
 async def purpose(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     context.user_data['purpose'] = update.message.text
-
     user = update.message.from_user
     lang = context.user_data['lang']
 
@@ -104,25 +102,19 @@ async def purpose(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     )
     await context.bot.send_message(chat_id=ADMIN_ID, text=text)
 
-    # Финальное сообщение пользователю
+    # Финальное сообщение
     final_keyboard = [[KeyboardButton("📩 НАПИСАТЬ НАМ")]]
     if lang == "РУССКИЙ":
-        final_text = (
-            "Спасибо за ответы! ❤️\n\n"
-            "Нажмите кнопку ниже и отправьте нам сообщение, чтобы мы могли связаться с вами"
-        )
+        final_text = "Спасибо за ответы! ❤️\n\nНажмите кнопку ниже и отправьте нам сообщение, чтобы мы могли связаться с вами"
     else:
-        final_text = (
-            "Thank you for your answers! ❤️\n\n"
-            "Click the button below and send us a message so we can get in touch with you."
-        )
+        final_text = "Thank you for your answers! ❤️\n\nClick the button below and send us a message so we can get in touch with you."
     await update.message.reply_text(final_text, reply_markup=ReplyKeyboardMarkup(final_keyboard, one_time_keyboard=True, resize_keyboard=True))
     return FINISH
 
 async def finish(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    # Пользователь нажал кнопку НАПИСАТЬ НАМ → сразу открывается чат
+    # Пользователь нажал кнопку
     chat_url = "https://t.me/alphadate"
-    await update.message.reply_text(f"{chat_url}")
+    await update.message.reply_text(chat_url, disable_web_page_preview=True)
     return ConversationHandler.END
 
 async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
@@ -149,10 +141,11 @@ def main():
     )
 
     app.add_handler(conv_handler)
-    app.run_polling()
+    app.run_polling(poll_interval=1, allowed_updates=None)
 
 if __name__ == "__main__":
     main()
+
 
 
 
