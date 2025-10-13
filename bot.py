@@ -1,14 +1,21 @@
 import logging
-from telegram import Update, ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram import (
+    Update,
+    ReplyKeyboardMarkup,
+    KeyboardButton,
+    InlineKeyboardButton,
+    InlineKeyboardMarkup
+)
 from telegram.ext import (
     ApplicationBuilder,
     CommandHandler,
     ContextTypes,
     ConversationHandler,
     MessageHandler,
-    filters,
+    filters
 )
 
+# ================ НАСТРОЙКИ ================
 logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
     level=logging.INFO
@@ -20,7 +27,7 @@ ADMIN_ID = 486225736
 
 LANG, GENDER, AGE, COUNTRY, INTERNATIONAL, PURPOSE, FINISH = range(7)
 
-# ================== ОБРАБОТЧИКИ ==================
+# ================ ОБРАБОТЧИКИ ================
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     greeting = (
@@ -34,16 +41,24 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     await update.message.reply_text(greeting, reply_markup=reply_markup)
     return LANG
 
+
 async def choose_language(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     lang = update.message.text
     context.user_data['lang'] = lang
     if lang == "РУССКИЙ":
         keyboard = [[KeyboardButton("Мужчина"), KeyboardButton("Женщина")]]
-        await update.message.reply_text("Пожалуйста, выберите ваш пол:", reply_markup=ReplyKeyboardMarkup(keyboard, one_time_keyboard=True, resize_keyboard=True))
+        await update.message.reply_text(
+            "Пожалуйста, выберите ваш пол:",
+            reply_markup=ReplyKeyboardMarkup(keyboard, one_time_keyboard=True, resize_keyboard=True)
+        )
     else:
         keyboard = [[KeyboardButton("Man"), KeyboardButton("Woman")]]
-        await update.message.reply_text("Please select your gender:", reply_markup=ReplyKeyboardMarkup(keyboard, one_time_keyboard=True, resize_keyboard=True))
+        await update.message.reply_text(
+            "Please select your gender:",
+            reply_markup=ReplyKeyboardMarkup(keyboard, one_time_keyboard=True, resize_keyboard=True)
+        )
     return GENDER
+
 
 async def choose_gender(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     context.user_data['gender'] = update.message.text
@@ -54,6 +69,7 @@ async def choose_gender(update: Update, context: ContextTypes.DEFAULT_TYPE) -> i
         await update.message.reply_text("How old are you?")
     return AGE
 
+
 async def age(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     context.user_data['age'] = update.message.text
     lang = context.user_data['lang']
@@ -63,16 +79,24 @@ async def age(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
         await update.message.reply_text("Please indicate your country of residence")
     return COUNTRY
 
+
 async def country(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     context.user_data['country'] = update.message.text
     lang = context.user_data['lang']
     if lang == "РУССКИЙ":
         keyboard = [[KeyboardButton("Да"), KeyboardButton("Нет")]]
-        await update.message.reply_text("У вас были регистрации на международных сайтах знакомств ранее?", reply_markup=ReplyKeyboardMarkup(keyboard, one_time_keyboard=True, resize_keyboard=True))
+        await update.message.reply_text(
+            "У вас были регистрации на международных сайтах знакомств ранее?",
+            reply_markup=ReplyKeyboardMarkup(keyboard, one_time_keyboard=True, resize_keyboard=True)
+        )
     else:
         keyboard = [[KeyboardButton("Yes"), KeyboardButton("No")]]
-        await update.message.reply_text("Have you registered on international dating sites before?", reply_markup=ReplyKeyboardMarkup(keyboard, one_time_keyboard=True, resize_keyboard=True))
+        await update.message.reply_text(
+            "Have you registered on international dating sites before?",
+            reply_markup=ReplyKeyboardMarkup(keyboard, one_time_keyboard=True, resize_keyboard=True)
+        )
     return INTERNATIONAL
+
 
 async def international(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     context.user_data['international'] = update.message.text
@@ -83,13 +107,14 @@ async def international(update: Update, context: ContextTypes.DEFAULT_TYPE) -> i
         await update.message.reply_text("What is your purpose for registering?")
     return PURPOSE
 
+
 async def purpose(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     context.user_data['purpose'] = update.message.text
 
     user = update.message.from_user
     lang = context.user_data['lang']
 
-    # Отправляем админу
+    # Отправляем админу собранные данные
     text = (
         f"Username: @{user.username if user.username else '-'}\n"
         f"Имя: {user.first_name}\n"
@@ -102,7 +127,7 @@ async def purpose(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     )
     await context.bot.send_message(chat_id=ADMIN_ID, text=text)
 
-    # Финальное сообщение пользователю с Inline кнопкой
+    # Финальное сообщение пользователю
     if lang == "РУССКИЙ":
         final_text = (
             "Спасибо за ответы! ❤️\n\n"
@@ -118,13 +143,17 @@ async def purpose(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
 
     reply_markup = InlineKeyboardMarkup(keyboard)
     await update.message.reply_text(final_text, reply_markup=reply_markup)
-    return FINISH
+
+    # ✅ Завершаем диалог, чтобы можно было пройти опрос снова
+    return ConversationHandler.END
+
 
 async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     await update.message.reply_text("Опрос отменен.")
     return ConversationHandler.END
 
-# ================== MAIN ==================
+
+# ================ MAIN ===================
 
 def main():
     app = ApplicationBuilder().token(BOT_TOKEN).build()
@@ -138,7 +167,6 @@ def main():
             COUNTRY: [MessageHandler(filters.TEXT & ~filters.COMMAND, country)],
             INTERNATIONAL: [MessageHandler(filters.TEXT & ~filters.COMMAND, international)],
             PURPOSE: [MessageHandler(filters.TEXT & ~filters.COMMAND, purpose)],
-            FINISH: [],
         },
         fallbacks=[CommandHandler("cancel", cancel)],
     )
@@ -146,8 +174,10 @@ def main():
     app.add_handler(conv_handler)
     app.run_polling()
 
+
 if __name__ == "__main__":
     main()
+
 
 
 
