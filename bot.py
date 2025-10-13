@@ -1,5 +1,5 @@
 import logging
-from telegram import Update, ReplyKeyboardMarkup, KeyboardButton
+from telegram import Update, ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import (
     ApplicationBuilder,
     CommandHandler,
@@ -20,7 +20,7 @@ ADMIN_ID = 486225736
 
 LANG, GENDER, AGE, COUNTRY, INTERNATIONAL, PURPOSE, FINISH = range(7)
 
-# ================ ОБРАБОТЧИКИ ================
+# ================== ОБРАБОТЧИКИ ==================
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     greeting = (
@@ -39,16 +39,10 @@ async def choose_language(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     context.user_data['lang'] = lang
     if lang == "РУССКИЙ":
         keyboard = [[KeyboardButton("Мужчина"), KeyboardButton("Женщина")]]
-        await update.message.reply_text(
-            "Пожалуйста, выберите ваш пол:", 
-            reply_markup=ReplyKeyboardMarkup(keyboard, one_time_keyboard=True, resize_keyboard=True)
-        )
+        await update.message.reply_text("Пожалуйста, выберите ваш пол:", reply_markup=ReplyKeyboardMarkup(keyboard, one_time_keyboard=True, resize_keyboard=True))
     else:
         keyboard = [[KeyboardButton("Man"), KeyboardButton("Woman")]]
-        await update.message.reply_text(
-            "Please select your gender:", 
-            reply_markup=ReplyKeyboardMarkup(keyboard, one_time_keyboard=True, resize_keyboard=True)
-        )
+        await update.message.reply_text("Please select your gender:", reply_markup=ReplyKeyboardMarkup(keyboard, one_time_keyboard=True, resize_keyboard=True))
     return GENDER
 
 async def choose_gender(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
@@ -74,16 +68,10 @@ async def country(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     lang = context.user_data['lang']
     if lang == "РУССКИЙ":
         keyboard = [[KeyboardButton("Да"), KeyboardButton("Нет")]]
-        await update.message.reply_text(
-            "У вас были регистрации на международных сайтах знакомств ранее?",
-            reply_markup=ReplyKeyboardMarkup(keyboard, one_time_keyboard=True, resize_keyboard=True)
-        )
+        await update.message.reply_text("У вас были регистрации на международных сайтах знакомств ранее?", reply_markup=ReplyKeyboardMarkup(keyboard, one_time_keyboard=True, resize_keyboard=True))
     else:
         keyboard = [[KeyboardButton("Yes"), KeyboardButton("No")]]
-        await update.message.reply_text(
-            "Have you registered on international dating sites before?",
-            reply_markup=ReplyKeyboardMarkup(keyboard, one_time_keyboard=True, resize_keyboard=True)
-        )
+        await update.message.reply_text("Have you registered on international dating sites before?", reply_markup=ReplyKeyboardMarkup(keyboard, one_time_keyboard=True, resize_keyboard=True))
     return INTERNATIONAL
 
 async def international(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
@@ -114,35 +102,29 @@ async def purpose(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     )
     await context.bot.send_message(chat_id=ADMIN_ID, text=text)
 
-    # Финальное сообщение пользователю
-    lang = context.user_data['lang']
+    # Финальное сообщение пользователю с Inline кнопкой
     if lang == "РУССКИЙ":
         final_text = (
             "Спасибо за ответы! ❤️\n\n"
             "Нажмите кнопку ниже и отправьте нам сообщение, чтобы мы могли связаться с вами."
         )
-        final_keyboard = [[KeyboardButton("📩 НАПИСАТЬ НАМ")]]
+        keyboard = [[InlineKeyboardButton("📩 НАПИСАТЬ НАМ", url="https://t.me/alphadate")]]
     else:
         final_text = (
             "Thank you for your answers! ❤️\n\n"
             "Click the button below and send us a message so we can get in touch with you."
         )
-        final_keyboard = [[KeyboardButton("📩 CONTACT US")]]
-    
-    await update.message.reply_text(final_text, reply_markup=ReplyKeyboardMarkup(final_keyboard, one_time_keyboard=True, resize_keyboard=True))
-    return FINISH
+        keyboard = [[InlineKeyboardButton("📩 CONTACT US", url="https://t.me/alphadate")]]
 
-async def finish(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    # Открываем чат сразу
-    chat_url = "https://t.me/alphadate"
-    await update.message.reply_text(chat_url)
-    return ConversationHandler.END
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    await update.message.reply_text(final_text, reply_markup=reply_markup)
+    return FINISH
 
 async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     await update.message.reply_text("Опрос отменен.")
     return ConversationHandler.END
 
-# ================ MAIN ================
+# ================== MAIN ==================
 
 def main():
     app = ApplicationBuilder().token(BOT_TOKEN).build()
@@ -156,10 +138,9 @@ def main():
             COUNTRY: [MessageHandler(filters.TEXT & ~filters.COMMAND, country)],
             INTERNATIONAL: [MessageHandler(filters.TEXT & ~filters.COMMAND, international)],
             PURPOSE: [MessageHandler(filters.TEXT & ~filters.COMMAND, purpose)],
-            FINISH: [MessageHandler(filters.TEXT & ~filters.COMMAND, finish)],
+            FINISH: [],
         },
         fallbacks=[CommandHandler("cancel", cancel)],
-        allow_reentry=True  # Позволяет пользователю пройти опрос повторно
     )
 
     app.add_handler(conv_handler)
@@ -167,6 +148,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
 
