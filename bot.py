@@ -1,5 +1,5 @@
 import logging
-from telegram import Update, ReplyKeyboardMarkup, KeyboardButton
+from telegram import Update, ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import (
     ApplicationBuilder,
     CommandHandler,
@@ -8,7 +8,6 @@ from telegram.ext import (
     MessageHandler,
     filters,
 )
-import pytz
 
 logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
@@ -28,7 +27,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
         "👋 Добрый день! Пожалуйста, ответьте на несколько вопросов.\n\n"
         "✍️ Это поможет нам лучше понять вашу цель обращения и быстрее вам помочь.\n\n"
         "👋 Good afternoon! Please answer a few questions.\n\n"
-        "✍️ This will help us better understand why you are contacting us and assist you more efficiently."
+        "✍️ This will help us better understand your purpose for contacting us and assist you more efficiently."
     )
     keyboard = [[KeyboardButton("РУССКИЙ"), KeyboardButton("ENGLISH")]]
     reply_markup = ReplyKeyboardMarkup(keyboard, one_time_keyboard=True, resize_keyboard=True)
@@ -102,19 +101,26 @@ async def purpose(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     )
     await context.bot.send_message(chat_id=ADMIN_ID, text=text)
 
-    # Финальное сообщение
-    final_keyboard = [[KeyboardButton("📩 НАПИСАТЬ НАМ")]]
+    # Финальное сообщение пользователю
     if lang == "РУССКИЙ":
-        final_text = "Спасибо за ответы! ❤️\n\nНажмите кнопку ниже и отправьте нам сообщение, чтобы мы могли связаться с вами"
+        final_text = (
+            "Спасибо за ответы! ❤️\n\n"
+            "Нажмите кнопку ниже и отправьте нам сообщение, чтобы мы могли связаться с вами"
+        )
+        button_text = "📩 НАПИСАТЬ НАМ"
     else:
-        final_text = "Thank you for your answers! ❤️\n\nClick the button below and send us a message so we can get in touch with you."
-    await update.message.reply_text(final_text, reply_markup=ReplyKeyboardMarkup(final_keyboard, one_time_keyboard=True, resize_keyboard=True))
+        final_text = (
+            "Thank you for your answers! ❤️\n\n"
+            "Click the button below and send us a message so we can get in touch with you."
+        )
+        button_text = "📩 CONTACT US"
+
+    final_keyboard = [[InlineKeyboardButton(button_text, url="https://t.me/alphadate")]]
+    reply_markup = InlineKeyboardMarkup(final_keyboard)
+    await update.message.reply_text(final_text, reply_markup=reply_markup)
     return FINISH
 
 async def finish(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    # Пользователь нажал кнопку
-    chat_url = "https://t.me/alphadate"
-    await update.message.reply_text(chat_url, disable_web_page_preview=True)
     return ConversationHandler.END
 
 async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
@@ -141,10 +147,11 @@ def main():
     )
 
     app.add_handler(conv_handler)
-    app.run_polling(poll_interval=1, allowed_updates=None)
+    app.run_polling()
 
 if __name__ == "__main__":
     main()
+
 
 
 
