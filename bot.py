@@ -3,70 +3,69 @@ from telegram import (
     Update,
     ReplyKeyboardMarkup,
     KeyboardButton,
-    InlineKeyboardButton,
-    InlineKeyboardMarkup
 )
 from telegram.ext import (
     ApplicationBuilder,
     CommandHandler,
     MessageHandler,
-    filters,
     ConversationHandler,
+    filters,
     ContextTypes,
 )
-from pytz import timezone
+import pytz
 
-# 🔹 Настройки
+# 🔹 Включаем логирование
+logging.basicConfig(level=logging.INFO)
+
+# 🔹 Константы состояний
+LANGUAGE, GENDER, AGE, COUNTRY, INTERNATIONAL, PURPOSE, FINAL = range(7)
+
+# 🔹 Твой токен
 TOKEN = "7110528714:AAFP6YGssZkEw55Jda1CYY1aR802XGoBOhg"
+
+# 🔹 ID админа
 ADMIN_ID = 486225736
-
-# 🔹 Логирование
-logging.basicConfig(
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO
-)
-logger = logging.getLogger(__name__)
-
-# 🔹 Состояния
-LANG, GENDER, AGE, COUNTRY, INTERNATIONAL, PURPOSE, FINISH = range(7)
 
 
 # 🔹 /start
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.effective_user.id
+    context.user_data.clear()  # позволяет заново проходить анкету
     keyboard = [["РУССКИЙ", "ENGLISH"]]
+
     await update.message.reply_text(
-        "Выберите язык / Choose your language:",
+        "🌍 Please select your language / Пожалуйста, выберите язык:",
         reply_markup=ReplyKeyboardMarkup(keyboard, resize_keyboard=True, one_time_keyboard=True),
     )
-    return LANG
+    return LANGUAGE
 
 
 # 🔹 Выбор языка
-async def choose_language(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def language(update: Update, context: ContextTypes.DEFAULT_TYPE):
     lang = update.message.text
-    context.user_data["lang"] = "ru" if "РУССКИЙ" in lang else "en"
+    context.user_data["lang"] = "ru" if lang == "РУССКИЙ" else "en"
 
-    if context.user_data["lang"] == "ru":
+    if lang == "РУССКИЙ":
         text = (
-            "Добрый день! Ответьте, пожалуйста, на несколько вопросов.\n\n"
+            "👋 Добрый день! Ответьте, пожалуйста, на несколько вопросов.\n\n"
             "Это поможет нам лучше узнать цель вашего обращения и помочь вам быстрее."
         )
         keyboard = [["Мужчина", "Женщина"]]
     else:
         text = (
-            "Good afternoon! Please answer a few questions.\n\n"
+            "👋 Good afternoon! Please answer a few questions.\n\n"
             "This will help us better understand your purpose for contacting us and assist you."
         )
         keyboard = [["Man", "Woman"]]
 
     await update.message.reply_text(
-        text,
-        reply_markup=ReplyKeyboardMarkup(keyboard, resize_keyboard=True, one_time_keyboard=True),
+        text, reply_markup=ReplyKeyboardMarkup(keyboard, resize_keyboard=True, one_time_keyboard=True)
     )
     return GENDER
 
 
 # 🔹 Пол
-async def choose_gender(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def gender(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data["gender"] = update.message.text
     lang = context.user_data["lang"]
 
@@ -80,11 +79,7 @@ async def age(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data["age"] = update.message.text
     lang = context.user_data["lang"]
 
-    text = (
-        "В какой стране вы проживаете постоянно?"
-        if lang == "ru"
-        else "Which country do you permanently live in?"
-    )
+    text = "В какой стране вы проживаете постоянно?" if lang == "ru" else "Which country do you live in permanently?"
     await update.message.reply_text(text)
     return COUNTRY
 
@@ -94,12 +89,17 @@ async def country(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data["country"] = update.message.text
     lang = context.user_data["lang"]
 
-    text = (
-        "У вас были регистрации на международных сайтах знакомств ранее?"
-        if lang == "ru"
-        else "Have you registered on international dating sites before?"
+    if lang == "ru":
+        text = "У вас были регистрации на международных сайтах знакомств ранее?"
+        keyboard = [["Да", "Нет"]]
+    else:
+        text = "Have you registered on international dating sites before?"
+        keyboard = [["Yes", "No"]]
+
+    await update.message.reply_text(
+        text,
+        reply_markup=ReplyKeyboardMarkup(keyboard, resize_keyboard=True, one_time_keyboard=True),
     )
-    await update.message.reply_text(text)
     return INTERNATIONAL
 
 
@@ -122,71 +122,67 @@ async def purpose(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data["purpose"] = update.message.text
     lang = context.user_data["lang"]
 
-    user = update.message.from_user
-    username = f"@{user.username}" if user.username else user.first_name
-    answers = context.user_data
+    user = update.effective_user
+    data = context.user_data
 
-    # 🔹 Отправляем админу все ответы
-    message_to_admin = (
-        f"📩 Новый ответ от {username}\n\n"
-        f"Пол: {answers.get('gender')}\n"
-        f"Возраст: {answers.get('age')}\n"
-        f"Страна: {answers.get('country')}\n"
-        f"Регистрация ранее: {answers.get('international')}\n"
-        f"Цель: {answers.get('purpose')}"
+    msg_admin = (
+        f"📩 Новый ответ от @{user.username or 'без username'} (ID: {user.id})\n\n"
+        f"Пол: {data.get('gender')}\n"
+        f"Возраст: {data.get('age')}\n"
+        f"Страна: {data.get('country')}\n"
+        f"Регистрация ранее: {data.get('international')}\n"
+        f"Цель: {data.get('purpose')}"
     )
-    await context.bot.send_message(chat_id=ADMIN_ID, text=message_to_admin)
 
-    # 🔹 Финал пользователю
+    await context.bot.send_message(chat_id=ADMIN_ID, text=msg_admin)
+
     if lang == "ru":
-        text = "Спасибо! Мы свяжемся с вами в ближайшее время ❤️"
-        button = InlineKeyboardButton("📩📩 НАПИСАТЬ НАМ", url="https://t.me/alphadate")
+        text = "Спасибо за ваши ответы! ❤️\n\nНажмите кнопку ниже, чтобы написать нам прямо сейчас:"
+        keyboard = [[KeyboardButton("📩 НАПИСАТЬ НАМ", url="https://t.me/alphadate")]]
     else:
-        text = "Thank you! We will get in touch with you shortly ❤️"
-        button = InlineKeyboardButton("📩📩 CONTACT US", url="https://t.me/alphadate")
+        text = "Thank you for your answers! ❤️\n\nClick the button below to contact us directly:"
+        keyboard = [[KeyboardButton("📩 CONTACT US", url="https://t.me/alphadate")]]
 
-    keyboard = InlineKeyboardMarkup([[button]])
-    await update.message.reply_text(text, reply_markup=keyboard)
-
-    # 🔹 очищаем данные, чтобы можно было пройти снова
-    context.user_data.clear()
-
+    await update.message.reply_text(
+        text, reply_markup=ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
+    )
     return ConversationHandler.END
 
 
-# 🔹 /cancel
+# 🔹 Команда /cancel
 async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("Диалог завершён. Для перезапуска напишите /start.")
-    context.user_data.clear()
+    await update.message.reply_text("Диалог завершён. Чтобы начать заново, введите /start")
     return ConversationHandler.END
 
 
-# 🔹 Основная функция
+# 🔹 Основной запуск
 def main():
+    import asyncio
+    from apscheduler.schedulers.asyncio import AsyncIOScheduler
+    from pytz import timezone
+
     app = ApplicationBuilder().token(TOKEN).build()
 
-    conv_handler = ConversationHandler(
+    conv = ConversationHandler(
         entry_points=[CommandHandler("start", start)],
         states={
-            LANG: [MessageHandler(filters.TEXT & ~filters.COMMAND, choose_language)],
-            GENDER: [MessageHandler(filters.TEXT & ~filters.COMMAND, choose_gender)],
+            LANGUAGE: [MessageHandler(filters.TEXT & ~filters.COMMAND, language)],
+            GENDER: [MessageHandler(filters.TEXT & ~filters.COMMAND, gender)],
             AGE: [MessageHandler(filters.TEXT & ~filters.COMMAND, age)],
             COUNTRY: [MessageHandler(filters.TEXT & ~filters.COMMAND, country)],
             INTERNATIONAL: [MessageHandler(filters.TEXT & ~filters.COMMAND, international)],
             PURPOSE: [MessageHandler(filters.TEXT & ~filters.COMMAND, purpose)],
         },
         fallbacks=[CommandHandler("cancel", cancel)],
-        allow_reentry=True,  # 🔥 позволяет одному пользователю запустить /start снова
     )
 
-    app.add_handler(conv_handler)
-
-    print("✅ Bot started successfully!")
+    app.add_handler(conv)
     app.run_polling()
 
 
 if __name__ == "__main__":
     main()
+
 
 
 
