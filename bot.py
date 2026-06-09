@@ -32,12 +32,13 @@ LANG, GENDER, AGE, COUNTRY, INTERNATIONAL, PURPOSE, FINISH = range(7)
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     greeting = (
         "👋 Добро пожаловать в AlphaDate!\n\n"
-        "✍️ Пожалуйста, ответьте на несколько вопросов. 
-        Это поможет нам лучше понять цель вашего обращения и оказать более точную помощь.\n\n"
-        "👋 👋 Welcome to AlphaDate!\n\n"
-        "✍️ Please answer a few questions.
-This will help us better understand the purpose of your request and provide more accurate assistance."
+        "✍️ Пожалуйста, ответьте на несколько вопросов.\n"
+        "Это поможет нам лучше понять цель вашего обращения и оказать более точную помощь.\n\n"
+        "👋 Welcome to AlphaDate!\n\n"
+        "✍️ Please answer a few questions.\n"
+        "This will help us better understand the purpose of your request and provide more accurate assistance."
     )
+
     keyboard = [[KeyboardButton("РУССКИЙ"), KeyboardButton("ENGLISH")]]
     reply_markup = ReplyKeyboardMarkup(keyboard, one_time_keyboard=True, resize_keyboard=True)
     await update.message.reply_text(greeting, reply_markup=reply_markup)
