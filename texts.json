@@ -1,7 +1,6 @@
 {
   "ru": {
-    "greeting": "👋 Добро пожаловать в AlphaDate!\n\n Пожалуйста, ответьте на несколько вопросов. 
-        Это поможет нам лучше понять цель вашего обращения и оказать более точную помощь.\n\n",
+    "greeting": "👋 Добро пожаловать в AlphaDate!\n\nПожалуйста, ответьте на несколько вопросов. Это поможет нам лучше понять цель вашего обращения и оказать более точную помощь.\n\n",
     "gender_question": "Выберите ваш пол:",
     "gender_male": "Мужской",
     "gender_female": "Женский",
@@ -14,8 +13,7 @@
     "contact_button": "📩 НАПИСАТЬ НАМ"
   },
   "en": {
-    "greeting": "👋 Welcome to AlphaDate!\n\n ✍️ Please answer a few questions.
-    This will help us better understand the purpose of your request and provide more accurate assistance.",
+    "greeting": "👋 Welcome to AlphaDate!\n\nPlease answer a few questions. This will help us better understand the purpose of your request and provide more accurate assistance.",
     "gender_question": "Select your gender:",
     "gender_male": "Male",
     "gender_female": "Female",
