@@ -1,4 +1,5 @@
 import logging
+import json
 from telegram import (
     Update,
     ReplyKeyboardMarkup,
@@ -25,22 +26,21 @@ logger = logging.getLogger(__name__)
 BOT_TOKEN = "7110528714:AAGTYZOsJBKJADt8RsQBxvvew6d-CYRSZfs"
 ADMIN_ID = 486225736
 
+# ====== LOAD TEXTS.JSON ======
+with open("texts.json", "r", encoding="utf-8") as f:
+    TEXTS = json.load(f)
+
 LANG, GENDER, AGE, COUNTRY, INTERNATIONAL, PURPOSE, FINISH = range(7)
 
 # ================ ОБРАБОТЧИКИ ================
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    greeting = (
-        "👋 Добро пожаловать в AlphaDate!\n\n"
-        "✍️ Пожалуйста, ответьте на несколько вопросов.\n"
-        "Это поможет нам лучше понять цель вашего обращения и оказать более точную помощь.\n\n"
-        "👋 Welcome to AlphaDate!\n\n"
-        "✍️ Please answer a few questions.\n"
-        "This will help us better understand the purpose of your request and provide more accurate assistance."
-    )
+    # минимальная логика: показываем оба языка (как у тебя было)
+    greeting = TEXTS["ru"]["greeting"] + "\n\n" + TEXTS["en"]["greeting"]
 
     keyboard = [[KeyboardButton("РУССКИЙ"), KeyboardButton("ENGLISH")]]
     reply_markup = ReplyKeyboardMarkup(keyboard, one_time_keyboard=True, resize_keyboard=True)
+
     await update.message.reply_text(greeting, reply_markup=reply_markup)
     return LANG
 
@@ -48,6 +48,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
 async def choose_language(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     lang = update.message.text
     context.user_data['lang'] = lang
+
     if lang == "РУССКИЙ":
         keyboard = [[KeyboardButton("Мужчина"), KeyboardButton("Женщина")]]
         await update.message.reply_text(
@@ -66,6 +67,7 @@ async def choose_language(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
 async def choose_gender(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     context.user_data['gender'] = update.message.text
     lang = context.user_data['lang']
+
     if lang == "РУССКИЙ":
         await update.message.reply_text("Сколько вам полных лет?")
     else:
@@ -76,6 +78,7 @@ async def choose_gender(update: Update, context: ContextTypes.DEFAULT_TYPE) -> i
 async def age(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     context.user_data['age'] = update.message.text
     lang = context.user_data['lang']
+
     if lang == "РУССКИЙ":
         await update.message.reply_text("Пожалуйста, укажите вашу страну проживания")
     else:
@@ -86,6 +89,7 @@ async def age(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
 async def country(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     context.user_data['country'] = update.message.text
     lang = context.user_data['lang']
+
     if lang == "РУССКИЙ":
         keyboard = [[KeyboardButton("Да"), KeyboardButton("Нет")]]
         await update.message.reply_text(
@@ -104,6 +108,7 @@ async def country(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
 async def international(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     context.user_data['international'] = update.message.text
     lang = context.user_data['lang']
+
     if lang == "РУССКИЙ":
         await update.message.reply_text("С какой целью интересует регистрация?")
     else:
@@ -117,7 +122,6 @@ async def purpose(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     user = update.message.from_user
     lang = context.user_data['lang']
 
-    # Отправляем админу собранные данные
     text = (
         f"Username: @{user.username if user.username else '-'}\n"
         f"Имя: {user.first_name}\n"
@@ -130,7 +134,6 @@ async def purpose(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     )
     await context.bot.send_message(chat_id=ADMIN_ID, text=text)
 
-    # Финальное сообщение пользователю
     if lang == "РУССКИЙ":
         final_text = (
             "Спасибо за ответы! ❤️\n\n"
@@ -147,7 +150,6 @@ async def purpose(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     reply_markup = InlineKeyboardMarkup(keyboard)
     await update.message.reply_text(final_text, reply_markup=reply_markup)
 
-    # ✅ Завершаем диалог, чтобы можно было пройти опрос снова
     return ConversationHandler.END
 
 
@@ -180,7 +182,6 @@ def main():
 
 if __name__ == "__main__":
     main()
-
 
 
 
